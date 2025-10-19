@@ -1,14 +1,56 @@
 const express = require('express');
+const { Pool } = require('pg'); // ← ADICIONE ESTA LINHA
 const cors = require('cors');
 const path = require('path');
-const fs = require('fs'); // ← ADICIONE ESTA LINHA
-const clientRoutes = require('./routes/clients');
-const paymentRoutes = require('./routes/payments');
-const webhookRoutes = require('./routes/webhooks');
-const adminRoutes = require('./routes/admin');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// ✅ CONEXÃO COM POSTGRESQL
+const pool = new Pool({
+  connectionString: 'postgresql://admin:VI5ygJqYR2aGq2BdzdbnenKeN5vCNAxg@dpg-cv8b6t6n91rc73cv1k4g-a.oregon-postgres.render.com/sistema_emprestimos_1v0r',
+  ssl: { rejectUnauthorized: false }
+});
+
+// ✅ CRIAR TABELAS SE NÃO EXISTIREM
+async function criarTabelas() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS clientes (
+        id SERIAL PRIMARY KEY,
+        cpf VARCHAR(11) UNIQUE NOT NULL,
+        nome VARCHAR(255) NOT NULL,
+        email VARCHAR(255),
+        telefone VARCHAR(20),
+        endereco TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS emprestimos (
+        id SERIAL PRIMARY KEY,
+        cliente_id INTEGER REFERENCES clientes(id),
+        valor_total DECIMAL(10,2) NOT NULL,
+        parcelas INTEGER NOT NULL,
+        data_contratacao DATE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS parcelas (
+        id SERIAL PRIMARY KEY,
+        emprestimo_id INTEGER REFERENCES emprestimos(id),
+        numero_parcela INTEGER NOT NULL,
+        valor DECIMAL(10,2) NOT NULL,
+        vencimento DATE NOT NULL,
+        status VARCHAR(20) DEFAULT 'Pendente',
+        data_pagamento DATE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log('✅ Tabelas criadas/verificadas');
+  } catch (error) {
+    console.error('❌ Erro ao criar tabelas:', error);
+  }
+}
 
 // Middleware
 app.use(cors());
@@ -18,225 +60,265 @@ app.use(express.urlencoded({ extended: true }));
 // Servir arquivos estáticos
 app.use(express.static(path.join(__dirname, '../')));
 
-// ✅ ROTAS DA API PRIMEIRO
-app.use('/api/clients', clientRoutes);
-app.use('/api/payments', paymentRoutes);
-app.use('/api/webhooks', webhookRoutes);
-app.use('/api/admin', adminRoutes);
-
-// ✅ Rota para admin page
-app.get('/admin', (req, res) => {
-    res.sendFile(path.join(__dirname, '../admin.html'));
-});
-
-// ✅ Rota de health check
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'OK', message: 'API funcionando' });
-});
-
-// ✅ Dados de exemplo (apenas para fallback)
-const clientsData = [
-    {
-        "cpf": "07220135319",
-        "nome": "Patricia da Silva Oliveira",
-        "email": "patricia.silva@email.com",
-        "endereco": "Edificio Ipanema, Emperatriz - MA",
-        "telefone": "98984894575",
-        "emprestimos": [
-            {
-                "valorTotal": 7866.0,
-                "parcelas": 5,
-                "boletos": [
-                    {
-                        "parcela": 1,
-                        "valor": 1573.20,
-                        "vencimento": "10-01-2024",
-                        "status": "Pago"
-                    },
-                    {
-                        "parcela": 2,
-                        "valor": 1573.20,
-                        "vencimento": "10-02-2024",
-                        "status": "Pago"
-                    },
-                    {
-                        "parcela": 3,
-                        "valor": 1573.20,
-                        "vencimento": "10-03-2024", 
-                        "status": "Pendente"
-                    }
-                ]
-            }
-        ]
-    },
-    {
-        "cpf": "70277930162", 
-        "nome": "Wylck Lorrhan Nascimento dos Santos",
-        "email": "wylck.lorrhan@email.com",
-        "endereco": "Rua das Macieiras Nº 219, Centro - Bom Jesus das Selvas/MA",
-        "telefone": "98985417436",
-        "emprestimos": [
-            {
-                "valorTotal": 5000.0,
-                "parcelas": 3,
-                "boletos": [
-                    {
-                        "parcela": 1,
-                        "valor": 1666.67,
-                        "vencimento": "15-12-2023",
-                        "status": "Atrasado"
-                    },
-                    {
-                        "parcela": 2,
-                        "valor": 1666.67,
-                        "vencimento": "15-01-2024",
-                        "status": "Pendente"
-                    }
-                ]
-            }
-        ]
-    }
-];
-
-// ✅ Rota da API para clientes (fallback se as rotas individuais não funcionarem)
-app.get('/api/clients/:cpf', (req, res) => {
+// ✅ ROTA PARA BUSCAR CLIENTE POR CPF
+app.get('/api/clients/:cpf', async (req, res) => {
+  try {
     const { cpf } = req.params;
     
-    // Primeiro tentar carregar do arquivo
-    try {
-        if (fs.existsSync('./data/database.json')) {
-            const data = fs.readFileSync('./data/database.json', 'utf8');
-            const clientes = JSON.parse(data);
-            const client = clientes.find(c => c.cpf === cpf);
-            
-            if (client) {
-                const updatedClient = calculateInterestAndUpdateStatus(JSON.parse(JSON.stringify(client)));
-                return res.json(updatedClient);
-            }
+    const result = await pool.query(`
+      SELECT c.*, 
+             json_agg(
+               json_build_object(
+                 'id', e.id,
+                 'valorTotal', e.valor_total,
+                 'parcelas', e.parcelas,
+                 'dataContratacao', e.data_contratacao,
+                 'boletos', (
+                   SELECT json_agg(
+                     json_build_object(
+                       'id', p.id,
+                       'parcela', p.numero_parcela,
+                       'valor', p.valor,
+                       'vencimento', TO_CHAR(p.vencimento, 'DD-MM-YYYY'),
+                       'status', p.status,
+                       'dataPagamento', p.data_pagamento
+                     )
+                   )
+                   FROM parcelas p
+                   WHERE p.emprestimo_id = e.id
+                   ORDER BY p.numero_parcela
+                 )
+               )
+             ) as emprestimos
+      FROM clientes c
+      LEFT JOIN emprestimos e ON e.cliente_id = c.id
+      WHERE c.cpf = $1
+      GROUP BY c.id
+    `, [cpf]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Cliente não encontrado' });
+    }
+
+    const cliente = result.rows[0];
+    const clienteComJuros = calculateInterestAndUpdateStatus(cliente);
+    res.json(clienteComJuros);
+  } catch (error) {
+    console.error('❌ Erro ao buscar cliente:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// ✅ ROTA PARA SALVAR/ATUALIZAR CLIENTE (ADMIN)
+app.post('/api/admin/clientes', async (req, res) => {
+  try {
+    const { cpf, nome, email, telefone, endereco, emprestimos } = req.body;
+
+    // Inserir ou atualizar cliente
+    const clienteResult = await pool.query(`
+      INSERT INTO clientes (cpf, nome, email, telefone, endereco)
+      VALUES ($1, $2, $3, $4, $5)
+      ON CONFLICT (cpf) DO UPDATE SET
+        nome = EXCLUDED.nome,
+        email = EXCLUDED.email,
+        telefone = EXCLUDED.telefone,
+        endereco = EXCLUDED.endereco
+      RETURNING *
+    `, [cpf, nome, email, telefone, endereco]);
+
+    const cliente = clienteResult.rows[0];
+
+    // Processar empréstimos
+    if (emprestimos && emprestimos.length > 0) {
+      for (const emp of emprestimos) {
+        const empResult = await pool.query(`
+          INSERT INTO emprestimos (cliente_id, valor_total, parcelas, data_contratacao)
+          VALUES ($1, $2, $3, $4)
+          RETURNING *
+        `, [cliente.id, emp.valorTotal, emp.parcelas, emp.dataContratacao]);
+
+        const emprestimo = empResult.rows[0];
+
+        // Processar parcelas
+        if (emp.boletos && emp.boletos.length > 0) {
+          for (const boleto of emp.boletos) {
+            await pool.query(`
+              INSERT INTO parcelas (emprestimo_id, numero_parcela, valor, vencimento, status, data_pagamento)
+              VALUES ($1, $2, $3, TO_DATE($4, 'DD-MM-YYYY'), $5, $6)
+              ON CONFLICT (emprestimo_id, numero_parcela) DO UPDATE SET
+                valor = EXCLUDED.valor,
+                vencimento = EXCLUDED.vencimento,
+                status = EXCLUDED.status,
+                data_pagamento = EXCLUDED.data_pagamento
+            `, [emprestimo.id, boleto.parcela, boleto.valor, boleto.vencimento, boleto.status, boleto.dataPagamento]);
+          }
         }
-    } catch (error) {
-        console.log('Erro ao carregar do arquivo, usando dados de exemplo');
+      }
     }
-    
-    // Fallback para dados de exemplo
-    const client = clientsData.find(c => c.cpf === cpf);
-    if (!client) {
-        return res.status(404).json({ error: 'Cliente não encontrado' });
-    }
-    
-    const updatedClient = calculateInterestAndUpdateStatus(JSON.parse(JSON.stringify(client)));
-    res.json(updatedClient);
+
+    res.json({ success: true, cliente });
+  } catch (error) {
+    console.error('❌ Erro ao salvar cliente:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// ✅ ROTA PARA LISTAR TODOS OS CLIENTES (ADMIN)
+app.get('/api/admin/clientes', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT c.*, 
+             json_agg(
+               json_build_object(
+                 'id', e.id,
+                 'valorTotal', e.valor_total,
+                 'parcelas', e.parcelas,
+                 'dataContratacao', e.data_contratacao,
+                 'boletos', (
+                   SELECT json_agg(
+                     json_build_object(
+                       'id', p.id,
+                       'parcela', p.numero_parcela,
+                       'valor', p.valor,
+                       'vencimento', TO_CHAR(p.vencimento, 'DD-MM-YYYY'),
+                       'status', p.status,
+                       'dataPagamento', p.data_pagamento
+                     )
+                   )
+                   FROM parcelas p
+                   WHERE p.emprestimo_id = e.id
+                   ORDER BY p.numero_parcela
+                 )
+               )
+             ) as emprestimos
+      FROM clientes c
+      LEFT JOIN emprestimos e ON e.cliente_id = c.id
+      GROUP BY c.id
+      ORDER BY c.nome
+    `);
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('❌ Erro ao listar clientes:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
 });
 
 // ✅ Rota para gerar PIX
-app.post('/api/payments/pix', (req, res) => {
-    const { cpf, emprestimoIndex, parcela } = req.body;
+app.post('/api/payments/pix', async (req, res) => {
+  try {
+    const { cpf, parcela } = req.body;
     
-    // Primeiro tentar carregar do arquivo
-    let client = null;
-    try {
-        if (fs.existsSync('./data/database.json')) {
-            const data = fs.readFileSync('./data/database.json', 'utf8');
-            const clientes = JSON.parse(data);
-            client = clientes.find(c => c.cpf === cpf);
-        }
-    } catch (error) {
-        console.log('Erro ao carregar do arquivo, usando dados de exemplo');
-    }
-    
-    // Fallback para dados de exemplo
-    if (!client) {
-        client = clientsData.find(c => c.cpf === cpf);
-    }
-    
-    if (!client) {
-        return res.status(404).json({ error: 'Cliente não encontrado' });
+    // Buscar dados da parcela
+    const result = await pool.query(`
+      SELECT p.*, c.nome
+      FROM parcelas p
+      JOIN emprestimos e ON e.id = p.emprestimo_id
+      JOIN clientes c ON c.id = e.cliente_id
+      WHERE c.cpf = $1 AND p.numero_parcela = $2
+    `, [cpf, parcela]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Parcela não encontrada' });
     }
 
-    // Encontrar o boleto específico
-    const emprestimo = client.emprestimos[emprestimoIndex];
-    if (!emprestimo) {
-        return res.status(404).json({ error: 'Empréstimo não encontrado' });
-    }
+    const parcelaData = result.rows[0];
     
-    const boleto = emprestimo.boletos.find(b => b.parcela === parcela);
-    if (!boleto) {
-        return res.status(404).json({ error: 'Parcela não encontrada' });
-    }
-
     // Calcular valor atualizado com juros
-    const valorAtualizado = calculateValorComJuros(boleto);
+    const valorAtualizado = calculateValorComJuros({
+      valor: parseFloat(parcelaData.valor),
+      vencimento: parcelaData.vencimento
+    });
 
     // Simular geração de PIX
     const paymentData = {
-        success: true,
-        valor: valorAtualizado,
-        txid: 'teste-' + Date.now(),
-        qrCode: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=PIX-TESTE-${Date.now()}`,
-        pixCopiaECola: `00020126580014br.gov.bcb.pix0136TESTE${Date.now()}520400005303986540${valorAtualizado.toFixed(2)}5802BR5903PIX6008Sao Paulo62070503***6304`,
-        location: `https://pix.example.com/pay/teste-${Date.now()}`
+      success: true,
+      valor: valorAtualizado,
+      txid: 'pix-' + Date.now(),
+      qrCode: `data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI0ZGRiIvPjxwYXRoIGQ9Ik00MCA0MGgxMjB2MTIwSDQweiIgZmlsbD0iIzAwMCIvPjwvc3ZnPg==`,
+      pixCopiaECola: `00020126580014br.gov.bcb.pix0136pix.sistema.emprestimos${Date.now()}520400005303986540${valorAtualizado.toFixed(2)}5802BR5903PIX6008Sistema62070503***6304`,
+      cliente: parcelaData.nome
     };
 
     res.json(paymentData);
+  } catch (error) {
+    console.error('❌ Erro ao gerar PIX:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
 });
 
 // ✅ Rota para verificar status
 app.get('/api/webhooks/status/:txid', (req, res) => {
-    res.json({
-        status: 'ATIVA',
-        txid: req.params.txid,
-        message: 'Pagamento ainda não confirmado'
-    });
+  res.json({
+    status: 'ATIVA',
+    txid: req.params.txid,
+    message: 'Pagamento ainda não confirmado'
+  });
+});
+
+// ✅ Rota para admin page
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, '../admin.html'));
+});
+
+// ✅ Rota de health check
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'OK', message: 'API funcionando' });
 });
 
 // ✅ DEPOIS servimos o frontend para qualquer outra rota
 app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../index.html'));
+  res.sendFile(path.join(__dirname, '../index.html'));
 });
 
 // ✅ Funções auxiliares
 function calculateInterestAndUpdateStatus(client) {
-    const hoje = new Date();
-    
+  const hoje = new Date();
+  
+  if (client.emprestimos) {
     client.emprestimos.forEach(emprestimo => {
+      if (emprestimo.boletos) {
         emprestimo.boletos.forEach(boleto => {
-            if (boleto.status !== 'Pago') {
-                const vencimento = new Date(boleto.vencimento.split('-').reverse().join('-'));
-                const diffTime = hoje - vencimento;
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                
-                if (diffDays > 0) {
-                    const juros = boleto.valor * 0.01 * diffDays;
-                    boleto.valorAtualizado = parseFloat((boleto.valor + juros).toFixed(2));
-                    boleto.diasAtraso = diffDays;
-                    boleto.status = 'Atrasado';
-                } else {
-                    boleto.valorAtualizado = boleto.valor;
-                    boleto.diasAtraso = 0;
-                }
+          if (boleto.status !== 'Pago') {
+            const vencimento = new Date(boleto.vencimento.split('-').reverse().join('-'));
+            const diffTime = hoje - vencimento;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (diffDays > 0) {
+              const juros = boleto.valor * 0.01 * diffDays;
+              boleto.valorAtualizado = parseFloat((boleto.valor + juros).toFixed(2));
+              boleto.diasAtraso = diffDays;
+              boleto.status = 'Atrasado';
+            } else {
+              boleto.valorAtualizado = boleto.valor;
+              boleto.diasAtraso = 0;
             }
+          }
         });
+      }
     });
+  }
 
-    return client;
+  return client;
 }
 
 function calculateValorComJuros(boleto) {
-    const hoje = new Date();
-    const vencimento = new Date(boleto.vencimento.split('-').reverse().join('-'));
-    const diffTime = hoje - vencimento;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays <= 0) return boleto.valor;
-    
-    const juros = boleto.valor * 0.01 * diffDays;
-    return parseFloat((boleto.valor + juros).toFixed(2));
+  const hoje = new Date();
+  const vencimento = new Date(boleto.vencimento);
+  const diffTime = hoje - vencimento;
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays <= 0) return boleto.valor;
+  
+  const juros = boleto.valor * 0.01 * diffDays;
+  return parseFloat((boleto.valor + juros).toFixed(2));
 }
 
-app.listen(PORT, () => {
-    console.log(`🚀 Servidor rodando na porta ${PORT}`);
-    console.log(`📱 Frontend: http://localhost:${PORT}`);
-    console.log(`👨‍💼 Admin: http://localhost:${PORT}/admin`);
-    console.log(`🔗 API: http://localhost:${PORT}/api`);
-    console.log(`👤 Teste com CPF: 07220135319 ou 70277930162`);
+// ✅ INICIAR SERVIDOR
+app.listen(PORT, async () => {
+  console.log(`🚀 Servidor rodando na porta ${PORT}`);
+  console.log(`📱 Frontend: http://localhost:${PORT}`);
+  console.log(`👨‍💼 Admin: http://localhost:${PORT}/admin`);
+  console.log(`🔗 API: http://localhost:${PORT}/api`);
+  await criarTabelas();
 });
