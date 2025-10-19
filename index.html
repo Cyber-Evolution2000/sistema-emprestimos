@@ -22,12 +22,23 @@
             line-height: 1.6;
         }
         
-        .header {
+        .logo-container {
+            text-align: center;
+            padding: 1.5rem 0 1rem 0;
             background: linear-gradient(135deg, var(--dark-gray) 0%, var(--black) 100%);
-            color: var(--gold);
-            padding: 1.5rem 0;
-            margin-bottom: 1.5rem;
             border-bottom: 3px solid var(--gold);
+        }
+        
+        .logo {
+            max-width: 200px;
+            height: auto;
+        }
+        
+        .header {
+            background: transparent;
+            color: var(--gold);
+            padding: 0 0 1.5rem 0;
+            margin-bottom: 1rem;
         }
         
         .card {
@@ -58,6 +69,19 @@
         .btn-primary:hover {
             background: linear-gradient(135deg, var(--dark-gold) 0%, #9C6F00 100%);
             color: var(--black);
+        }
+        
+        .btn-pix {
+            background: linear-gradient(135deg, #32BCAD 0%, #1E9B8F 100%);
+            border: none;
+            color: white;
+            font-weight: 600;
+            padding: 10px 20px;
+        }
+        
+        .btn-pix:hover {
+            background: linear-gradient(135deg, #1E9B8F 0%, #167A70 100%);
+            color: white;
         }
         
         .form-control {
@@ -130,10 +154,13 @@
             color: var(--gold) !important;
         }
         
-        .emprestimo-item {
+        .parcela-item {
             border-left: 4px solid var(--gold);
             padding-left: 15px;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
+            background-color: var(--light-gray);
+            border-radius: 8px;
+            padding: 15px;
         }
         
         .badge-gold {
@@ -141,11 +168,21 @@
             color: var(--black);
         }
         
+        .parcela-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
         /* Melhorias para mobile */
         @media (max-width: 768px) {
+            .logo {
+                max-width: 150px;
+            }
+            
             .header {
-                padding: 1rem 0;
-                margin-bottom: 1rem;
+                padding: 0 0 1rem 0;
             }
             
             .header h1 {
@@ -169,7 +206,7 @@
                 font-size: 1.1rem;
             }
             
-            .emprestimo-item {
+            .parcela-item {
                 padding: 15px;
                 margin-bottom: 15px;
             }
@@ -181,6 +218,10 @@
         }
         
         @media (max-width: 576px) {
+            .logo {
+                max-width: 120px;
+            }
+            
             .header h1 {
                 font-size: 1.5rem;
             }
@@ -202,10 +243,15 @@
     </style>
 </head>
 <body>
+    <!-- Logo -->
+    <div class="logo-container">
+        <img src="img/logo.png" alt="Logo" class="logo">
+    </div>
+
     <div class="header text-center">
         <div class="container">
             <h1 class="display-5 fw-bold">Consulta de Empréstimos</h1>
-            <p class="lead mb-0">Verifique suas informações e realize pagamentos via PIX</p>
+            <p class="lead mb-0">Verifique suas parcelas e realize pagamentos via PIX</p>
         </div>
     </div>
 
@@ -223,7 +269,7 @@
             <div class="col-12 col-md-8 col-lg-6">
                 <div class="card">
                     <div class="card-header text-center">
-                        Consultar Empréstimos
+                        Consultar Parcelas
                     </div>
                     <div class="card-body p-3 p-md-4">
                         <form id="consultaForm">
@@ -234,7 +280,7 @@
                             </div>
                             <div class="d-grid">
                                 <button type="submit" class="btn btn-primary btn-lg">
-                                    <i class="bi bi-search me-2"></i>Consultar Empréstimos
+                                    Consultar Parcelas
                                 </button>
                             </div>
                         </form>
@@ -280,54 +326,58 @@
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('resultado').style.display = 'block';
                 
-                // Dados simulados
-                const emprestimos = [
+                // Dados simulados - PARCELAS
+                const parcelas = [
                     {
-                        id: 1,
-                        valor: 1500.00,
-                        valorAtualizado: 1650.00,
-                        dataContratacao: '15/10/2024',
+                        numero: 1,
+                        valorOriginal: 500.00,
+                        valorAtual: 500.00,
                         vencimento: '15/11/2024',
-                        status: 'Pendente',
-                        qrCode: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI0ZGRiIvPjxwYXRoIGQ9Ik00MCA0MGgxMjB2MTIwSDQweiIgZmlsbD0iIzAwMCIvPjwvc3ZnPg=='
+                        status: 'Pendente'
                     },
                     {
-                        id: 2,
-                        valor: 2500.00,
-                        valorAtualizado: 2500.00,
-                        dataContratacao: '01/09/2024',
-                        vencimento: '01/10/2024',
-                        status: 'Atrasado',
-                        qrCode: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI0ZGRiIvPjxwYXRoIGQ9Ik00MCA0MGgxMjB2MTIwSDQweiIgZmlsbD0iIzAwMCIvPjwvc3ZnPg=='
+                        numero: 2,
+                        valorOriginal: 500.00,
+                        valorAtual: 525.00,
+                        vencimento: '15/10/2024',
+                        status: 'Atrasado'
+                    },
+                    {
+                        numero: 3,
+                        valorOriginal: 500.00,
+                        valorAtual: 500.00,
+                        vencimento: '15/12/2024',
+                        status: 'Pendente'
                     }
                 ];
                 
                 // Exibir resultados
-                let html = '<div class="card"><div class="card-header text-center">Resultados da Consulta</div><div class="card-body">';
+                let html = '<div class="card"><div class="card-header text-center">Suas Parcelas</div><div class="card-body">';
                 
-                if (emprestimos.length === 0) {
-                    html += '<p class="text-center">Nenhum empréstimo encontrado para este CPF.</p>';
+                if (parcelas.length === 0) {
+                    html += '<p class="text-center">Nenhuma parcela encontrada para este CPF.</p>';
                 } else {
-                    emprestimos.forEach(emp => {
+                    parcelas.forEach(parcela => {
+                        const temJuros = parcela.valorAtual > parcela.valorOriginal;
+                        
                         html += `
-                        <div class="emprestimo-item mb-4 p-3 bg-dark rounded">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <h5 class="mb-0">Empréstimo #${emp.id}</h5>
-                                <span class="badge badge-gold px-3 py-2 rounded-pill">${emp.status}</span>
+                        <div class="parcela-item">
+                            <div class="parcela-header">
+                                <h5 class="mb-0">Parcela ${parcela.numero}</h5>
+                                <span class="badge badge-gold px-3 py-2 rounded-pill">${parcela.status}</span>
                             </div>
-                            <div class="row">
-                                <div class="col-12 col-sm-6">
-                                    <p class="mb-1"><strong>Valor Original:</strong> R$ ${emp.valor.toFixed(2)}</p>
-                                    <p class="mb-1"><strong>Valor Atual:</strong> <span class="valor-atualizado">R$ ${emp.valorAtualizado.toFixed(2)}</span></p>
-                                    <p class="mb-1"><strong>Data Contratação:</strong> ${emp.dataContratacao}</p>
-                                    <p class="mb-1"><strong>Vencimento:</strong> ${emp.vencimento}</p>
+                            
+                            <div class="row align-items-center">
+                                <div class="col-12 col-md-6">
+                                    <p class="mb-1"><strong>Valor Original:</strong> R$ ${parcela.valorOriginal.toFixed(2)}</p>
+                                    <p class="mb-1"><strong>Valor Atual:</strong> <span class="valor-atualizado">R$ ${parcela.valorAtual.toFixed(2)}</span></p>
+                                    ${temJuros ? '<p class="mb-1 text-warning small"><i class="bi bi-exclamation-triangle"></i> Inclui juros por atraso</p>' : ''}
+                                    <p class="mb-1"><strong>Vencimento:</strong> ${parcela.vencimento}</p>
                                 </div>
-                                <div class="col-12 col-sm-6 mt-3 mt-sm-0">
-                                    <div class="qrcode-container">
-                                        <p class="mb-2"><strong>PIX para Pagamento</strong></p>
-                                        <img src="${emp.qrCode}" alt="QR Code PIX" class="img-fluid" style="max-width: 150px;">
-                                        <p class="small mt-2 mb-0">Escaneie para pagar</p>
-                                    </div>
+                                <div class="col-12 col-md-6 text-center text-md-end mt-2 mt-md-0">
+                                    <button class="btn btn-pix btn-lg" onclick="mostrarQRCode(${parcela.numero}, ${parcela.valorAtual})">
+                                        PAGAR VIA PIX
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -342,6 +392,39 @@
                 document.getElementById('resultado').scrollIntoView({ behavior: 'smooth' });
             }, 1500);
         });
+        
+        // Função para mostrar QR Code quando clicar em PAGAR VIA PIX
+        function mostrarQRCode(numeroParcela, valor) {
+            // Criar modal ou mostrar QR Code
+            const modalHTML = `
+                <div class="modal fade" id="qrcodeModal" tabindex="-1">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content" style="background-color: var(--dark-gray); border: 2px solid var(--gold);">
+                            <div class="modal-header" style="border-bottom: 1px solid var(--gold);">
+                                <h5 class="modal-title" style="color: var(--gold);">Pagamento via PIX</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body text-center">
+                                <p>Parcela ${numeroParcela} - <strong>R$ ${valor.toFixed(2)}</strong></p>
+                                <div class="qrcode-container">
+                                    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI0ZGRiIvPjxwYXRoIGQ9Ik00MCA0MGgxMjB2MTIwSDQweiIgZmlsbD0iIzAwMCIvPjwvc3ZnPg==" alt="QR Code PIX" class="img-fluid" style="max-width: 200px;">
+                                </div>
+                                <p class="small mt-3">Escaneie o QR Code com seu app bancário</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Adicionar modal ao body se não existir
+            if (!document.getElementById('qrcodeModal')) {
+                document.body.insertAdjacentHTML('beforeend', modalHTML);
+            }
+            
+            // Mostrar modal
+            const modal = new bootstrap.Modal(document.getElementById('qrcodeModal'));
+            modal.show();
+        }
         
         // Máscara para CPF (apenas números)
         document.getElementById('cpf').addEventListener('input', function(e) {
