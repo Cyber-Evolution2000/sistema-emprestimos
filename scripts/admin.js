@@ -487,28 +487,29 @@ class AdminSystem {
     }
 
     async salvarDados() {
-        try {
-            const response = await fetch('/api/admin/clientes', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(this.clientes)
-            });
+    try {
+        const response = await fetch('/api/admin/clientes', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(this.clientes)
+        });
 
-            if (response.ok) {
-                console.log('Dados salvos com sucesso no servidor!');
-                return true;
-            } else {
-                throw new Error('Erro ao salvar no servidor');
-            }
-        } catch (error) {
-            console.error('Erro ao salvar no servidor, usando localStorage:', error);
-            // Fallback para localStorage
-            localStorage.setItem('clientesData', JSON.stringify(this.clientes));
-            return false;
+        if (response.ok) {
+            console.log('Dados salvos com sucesso no servidor!');
+            return true;
+        } else {
+            throw new Error('Erro ao salvar no servidor');
         }
+    } catch (error) {
+        console.error('Erro ao salvar no servidor, usando localStorage:', error);
+        // ✅ CORREÇÃO: Salvar no localStorage que a consulta procura
+        localStorage.setItem('clientesData', JSON.stringify(this.clientes));
+        console.log('💾 Dados salvos no localStorage:', this.clientes);
+        return false;
     }
+}
 
     marcarComoPago(cpf, indexBoleto) {
         const cliente = this.clientes.find(c => c.cpf === cpf);

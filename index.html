@@ -165,6 +165,11 @@
             color: white;
         }
         
+        .parcela-paga {
+            border-left: 4px solid #28a745;
+            opacity: 0.8;
+        }
+        
         .badge-gold {
             background-color: var(--gold);
             color: var(--black);
@@ -323,63 +328,39 @@
                 const clientesData = localStorage.getItem('clientesData');
                 
                 if (clientesData) {
-                    console.log('✅ Dados carregados do admin:', JSON.parse(clientesData));
-                    return JSON.parse(clientesData);
+                    const dados = JSON.parse(clientesData);
+                    console.log('✅ Dados carregados do admin:', dados);
+                    return dados;
                 }
                 
-                console.log('⚠️ Nenhum dado encontrado no localStorage, usando fallback');
-                return carregarDadosFallback();
+                console.log('⚠️ Nenhum dado encontrado no localStorage');
+                
+                // ✅ Tenta buscar de outras chaves possíveis
+                const alternativeKeys = ['clientes', 'emprestimosData', 'sistema_emprestimos'];
+                for (let key of alternativeKeys) {
+                    const altData = localStorage.getItem(key);
+                    if (altData) {
+                        console.log(`✅ Dados encontrados na chave alternativa: ${key}`);
+                        return JSON.parse(altData);
+                    }
+                }
+                
+                console.log('❌ Nenhum dado encontrado em nenhuma chave');
+                return [];
+                
             } catch (error) {
                 console.error('❌ Erro ao carregar dados:', error);
-                return carregarDadosFallback();
+                return [];
             }
-        }
-
-        // Dados de fallback (apenas se não tiver dados no admin)
-        function carregarDadosFallback() {
-            return [
-                {
-                    "cpf": "07220135319",
-                    "nome": "Patricia da Silva Oliveira",
-                    "email": "patricia.silva@email.com",
-                    "endereco": "Edificio Ipanema, Emperatriz - MA",
-                    "telefone": "98984894575",
-                    "emprestimos": [
-                        {
-                            "valorTotal": 7866.0,
-                            "parcelas": 5,
-                            "dataContratacao": "2024-01-01",
-                            "boletos": [
-                                {
-                                    "parcela": 1,
-                                    "valor": 1573.20,
-                                    "vencimento": "10-01-2024",
-                                    "status": "Pago"
-                                },
-                                {
-                                    "parcela": 2,
-                                    "valor": 1573.20,
-                                    "vencimento": "10-02-2024",
-                                    "status": "Pago"
-                                },
-                                {
-                                    "parcela": 3,
-                                    "valor": 1573.20,
-                                    "vencimento": "10-03-2024", 
-                                    "status": "Pendente"
-                                }
-                            ]
-                        }
-                    ]
-                }
-            ];
         }
 
         // Buscar cliente por CPF - AGORA 100% ATUALIZADO
         function buscarClientePorCPF(cpf) {
             const clientes = carregarDadosClientes();
             console.log('🔍 Buscando CPF:', cpf, 'em', clientes);
-            return clientes.find(cliente => cliente.cpf === cpf);
+            const cliente = clientes.find(cliente => cliente.cpf === cpf);
+            console.log('🔍 Cliente encontrado:', cliente);
+            return cliente;
         }
 
         // Calcular valor atualizado com juros
@@ -420,7 +401,7 @@
             document.getElementById('loading').style.display = 'block';
             document.getElementById('resultado').style.display = 'none';
             
-            // ✅ CONSULTA INSTANTÂNEA - sem delay artificial
+            // ✅ CONSULTA INSTANTÂNEA
             setTimeout(function() {
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('resultado').style.display = 'block';
@@ -435,6 +416,7 @@
                                 <h4>Cliente não encontrado</h4>
                                 <p>Nenhum cliente cadastrado com o CPF: ${cpf}</p>
                                 <p class="small text-muted">Verifique se o CPF está correto ou entre em contato conosco.</p>
+                                <button class="btn btn-warning mt-2" onclick="debugLocalStorage()">🔍 Ver Dados no Sistema</button>
                             </div>
                         </div>
                     `;
@@ -458,51 +440,87 @@
                 if (!cliente.emprestimos || cliente.emprestimos.length === 0) {
                     html += '<p class="text-center">Nenhum empréstimo encontrado para este cliente.</p>';
                 } else {
-                    html += '<h5 class="mb-3">Parcelas em Aberto</h5>';
+                    html += '<h5 class="mb-3">Todas as Parcelas</h5>';
                     
-                    let temParcelasPendentes = false;
+                    let totalParcelas = 0;
+                    let parcelasPagas = 0;
+                    let parcelasPendentes = 0;
+                    let parcelasAtrasadas = 0;
                     
                     cliente.emprestimos.forEach(emprestimo => {
                         if (emprestimo.boletos && emprestimo.boletos.length > 0) {
                             emprestimo.boletos.forEach(parcela => {
-                                if (parcela.status !== 'Pago') {
-                                    temParcelasPendentes = true;
-                                    const valorAtual = calcularValorAtualizado(parcela);
-                                    const temJuros = valorAtual > parseFloat(parcela.valor);
-                                    const statusClass = parcela.status === 'Pendente' ? 'status-pendente' : 
-                                                       parcela.status === 'Atrasado' ? 'status-atrasado' : 'status-pago';
+                                totalParcelas++;
+                                if (parcela.status === 'Pago') parcelasPagas++;
+                                if (parcela.status === 'Pendente') parcelasPendentes++;
+                                if (parcela.status === 'Atrasado') parcelasAtrasadas++;
+                                
+                                const valorAtual = calcularValorAtualizado(parcela);
+                                const temJuros = valorAtual > parseFloat(parcela.valor);
+                                const statusClass = parcela.status === 'Pago' ? 'status-pago' : 
+                                                   parcela.status === 'Atrasado' ? 'status-atrasado' : 'status-pendente';
+                                
+                                const classeParcela = parcela.status === 'Pago' ? 'parcela-item parcela-paga' : 'parcela-item';
+                                
+                                html += `
+                                <div class="${classeParcela}">
+                                    <div class="parcela-header">
+                                        <h5 class="mb-0">Parcela ${parcela.parcela}</h5>
+                                        <span class="badge badge-gold px-3 py-2 rounded-pill ${statusClass}">${parcela.status}</span>
+                                    </div>
                                     
-                                    html += `
-                                    <div class="parcela-item">
-                                        <div class="parcela-header">
-                                            <h5 class="mb-0">Parcela ${parcela.parcela}</h5>
-                                            <span class="badge badge-gold px-3 py-2 rounded-pill ${statusClass}">${parcela.status}</span>
+                                    <div class="row align-items-center">
+                                        <div class="col-12 col-md-6">
+                                            <p class="mb-1"><strong>Valor Original:</strong> R$ ${parseFloat(parcela.valor).toFixed(2)}</p>
+                                            <p class="mb-1"><strong>Valor Atual:</strong> <span class="valor-atualizado">R$ ${valorAtual.toFixed(2)}</span></p>
+                                            ${temJuros ? '<p class="mb-1 text-warning small"><i class="bi bi-exclamation-triangle"></i> Inclui juros por atraso</p>' : ''}
+                                            <p class="mb-1"><strong>Vencimento:</strong> ${formatarData(parcela.vencimento)}</p>
+                                            <p class="mb-1"><strong>Empréstimo:</strong> R$ ${emprestimo.valorTotal.toFixed(2)} (${emprestimo.parcelas} parcelas)</p>
                                         </div>
-                                        
-                                        <div class="row align-items-center">
-                                            <div class="col-12 col-md-6">
-                                                <p class="mb-1"><strong>Valor Original:</strong> R$ ${parseFloat(parcela.valor).toFixed(2)}</p>
-                                                <p class="mb-1"><strong>Valor Atual:</strong> <span class="valor-atualizado">R$ ${valorAtual.toFixed(2)}</span></p>
-                                                ${temJuros ? '<p class="mb-1 text-warning small"><i class="bi bi-exclamation-triangle"></i> Inclui juros por atraso</p>' : ''}
-                                                <p class="mb-1"><strong>Vencimento:</strong> ${formatarData(parcela.vencimento)}</p>
-                                                <p class="mb-1"><strong>Empréstimo:</strong> R$ ${emprestimo.valorTotal.toFixed(2)} (${emprestimo.parcelas} parcelas)</p>
-                                            </div>
-                                            <div class="col-12 col-md-6 text-center text-md-end mt-2 mt-md-0">
+                                        <div class="col-12 col-md-6 text-center text-md-end mt-2 mt-md-0">
+                                            ${parcela.status !== 'Pago' ? `
                                                 <button class="btn btn-pix btn-lg" onclick="mostrarQRCode(${parcela.parcela}, ${valorAtual}, '${cliente.nome.replace(/'/g, "\\'")}')">
                                                     PAGAR VIA PIX
                                                 </button>
-                                            </div>
+                                            ` : `
+                                                <span class="text-success">✅ <strong>PAGO</strong></span>
+                                            `}
                                         </div>
                                     </div>
-                                    `;
-                                }
+                                </div>
+                                `;
                             });
                         }
                     });
                     
-                    if (!temParcelasPendentes) {
-                        html += '<p class="text-center text-success">✅ Todas as parcelas estão pagas. Não há pendências.</p>';
-                    }
+                    // Resumo
+                    html += `
+                        <div class="card mt-4">
+                            <div class="card-header bg-dark">
+                                <h6 class="mb-0">📊 Resumo das Parcelas</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row text-center">
+                                    <div class="col-6 col-md-3">
+                                        <h4 class="text-primary">${totalParcelas}</h4>
+                                        <small>Total</small>
+                                    </div>
+                                    <div class="col-6 col-md-3">
+                                        <h4 class="text-success">${parcelasPagas}</h4>
+                                        <small>Pagas</small>
+                                    </div>
+                                    <div class="col-6 col-md-3">
+                                        <h4 class="text-warning">${parcelasPendentes}</h4>
+                                        <small>Pendentes</small>
+                                    </div>
+                                    <div class="col-6 col-md-3">
+                                        <h4 class="text-danger">${parcelasAtrasadas}</h4>
+                                        <small>Atrasadas</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
                 }
                 
                 html += '</div></div>';
@@ -510,7 +528,7 @@
                 
                 // Rolar para os resultados
                 document.getElementById('resultado').scrollIntoView({ behavior: 'smooth' });
-            }, 100); // ✅ Delay mínimo para melhor UX
+            }, 100);
         });
         
         // Função para mostrar QR Code quando clicar em PAGAR VIA PIX
@@ -547,6 +565,17 @@
             modal.show();
         }
         
+        // Função de debug para ver o que está no localStorage
+        function debugLocalStorage() {
+            const todasChaves = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const chave = localStorage.key(i);
+                todasChaves.push(chave);
+            }
+            
+            alert(`Chaves no localStorage:\n${todasChaves.join('\n')}\n\nClientesData: ${localStorage.getItem('clientesData')}`);
+        }
+        
         // Máscara para CPF (apenas números)
         document.getElementById('cpf').addEventListener('input', function(e) {
             this.value = this.value.replace(/\D/g, '');
@@ -554,8 +583,6 @@
 
         // ✅ ATUALIZAÇÃO AUTOMÁTICA - Verifica dados a cada 2 segundos
         setInterval(() => {
-            console.log('🔄 Verificando atualizações...');
-            // Se houver um resultado visível, atualiza automaticamente
             if (document.getElementById('resultado').style.display !== 'none') {
                 const cpf = document.getElementById('cpf').value;
                 if (cpf.length === 11) {
