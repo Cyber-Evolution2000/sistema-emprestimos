@@ -6,16 +6,42 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// ✅ CONEXÃO COM POSTGRESQL - URL CORRIGIDA
-const pool = new Pool({
-  connectionString: 'postgresql://admin:VI5ygJqYR2aGq2BdzdbnenKeN5vCNAxg@dpg-cvjf6m5umphs6s7v8qg0-a.oregon-postgres.render.com/sistema_emprestimos',
-  ssl: { rejectUnauthorized: false }
-});
+// ✅ CONEXÃO COM POSTGRESQL - CONFIGURAÇÃO CORRIGIDA
+const poolConfig = {
+  connectionString: process.env.DATABASE_URL || 'postgresql://admin:VI5ygJqYR2aGq2BdzdbnenKeN5vCNAxg@dpg-cvjf6m5umphs6s7v8qg0-a.oregon-postgres.render.com/sistema_emprestimos',
+  ssl: {
+    rejectUnauthorized: false
+  },
+  // Configurações para melhor estabilidade
+  max: 20, // máximo de clientes no pool
+  idleTimeoutMillis: 30000, // fecha conexões idle após 30s
+  connectionTimeoutMillis: 10000, // timeout de conexão de 10s
+  maxUses: 7500, // fecha conexão após 7500 queries
+};
+
+const pool = new Pool(poolConfig);
+
+// ✅ VERIFICAR CONEXÃO COM BANCO
+async function testarConexao() {
+  try {
+    const client = await pool.connect();
+    console.log('✅ Conexão com PostgreSQL estabelecida com sucesso!');
+    client.release();
+    return true;
+  } catch (error) {
+    console.error('❌ Erro ao conectar com PostgreSQL:', error.message);
+    return false;
+  }
+}
 
 // ✅ CRIAR TABELAS SE NÃO EXISTIREM
 async function criarTabelas() {
+  let client;
   try {
-    await pool.query(`
+    client = await pool.connect();
+    console.log('📊 Verificando/Criando tabelas...');
+    
+    await client.query(`
       CREATE TABLE IF NOT EXISTS clientes (
         id SERIAL PRIMARY KEY,
         cpf VARCHAR(11) UNIQUE NOT NULL,
@@ -46,9 +72,11 @@ async function criarTabelas() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    console.log('✅ Tabelas criadas/verificadas');
+    console.log('✅ Tabelas criadas/verificadas com sucesso!');
   } catch (error) {
-    console.error('❌ Erro ao criar tabelas:', error);
+    console.error('❌ Erro ao criar tabelas:', error.message);
+  } finally {
+    if (client) client.release();
   }
 }
 
@@ -57,16 +85,30 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ SERVIR ARQUIVOS ESTÁTICOS - CAMINHO CORRETO
+// ✅ SERVIR ARQUIVOS ESTÁTICOS
 app.use(express.static(__dirname));
 
-// ✅ ROTA PARA BUSCAR CLIENTE POR CPF - CONSULTA CORRIGIDA
+// ✅ MIDDLEWARE PARA GERENCIAR CONEXÕES
+app.use(async (req, res, next) => {
+  try {
+    // Testa a conexão antes de cada requisição
+    await testarConexao();
+    next();
+  } catch (error) {
+    console.error('❌ Erro de conexão no middleware:', error.message);
+    res.status(500).json({ error: 'Erro de conexão com o banco de dados' });
+  }
+});
+
+// ✅ ROTA PARA BUSCAR CLIENTE POR CPF
 app.get('/api/clients/:cpf', async (req, res) => {
+  let client;
   try {
     const { cpf } = req.params;
+    client = await pool.connect();
     
     // Primeiro busca o cliente
-    const clienteResult = await pool.query(
+    const clienteResult = await client.query(
       'SELECT * FROM clientes WHERE cpf = $1',
       [cpf]
     );
@@ -78,7 +120,7 @@ app.get('/api/clients/:cpf', async (req, res) => {
     const cliente = clienteResult.rows[0];
 
     // Busca os empréstimos do cliente
-    const emprestimosResult = await pool.query(
+    const emprestimosResult = await client.query(
       `SELECT e.* FROM emprestimos e WHERE e.cliente_id = $1`,
       [cliente.id]
     );
@@ -87,7 +129,7 @@ app.get('/api/clients/:cpf', async (req, res) => {
 
     // Para cada empréstimo, busca as parcelas
     for (const emprestimo of emprestimosResult.rows) {
-      const parcelasResult = await pool.query(
+      const parcelasResult = await client.query(
         `SELECT p.*, TO_CHAR(p.vencimento, 'DD-MM-YYYY') as vencimento_formatado 
          FROM parcelas p 
          WHERE p.emprestimo_id = $1 
@@ -116,18 +158,22 @@ app.get('/api/clients/:cpf', async (req, res) => {
     const clienteComJuros = calculateInterestAndUpdateStatus(cliente);
     res.json(clienteComJuros);
   } catch (error) {
-    console.error('❌ Erro ao buscar cliente:', error);
+    console.error('❌ Erro ao buscar cliente:', error.message);
     res.status(500).json({ error: 'Erro interno do servidor' });
+  } finally {
+    if (client) client.release();
   }
 });
 
 // ✅ ROTA PARA SALVAR/ATUALIZAR CLIENTE (ADMIN)
 app.post('/api/admin/clientes', async (req, res) => {
+  let client;
   try {
     const { cpf, nome, email, telefone, endereco, emprestimos } = req.body;
+    client = await pool.connect();
 
     // Inserir ou atualizar cliente
-    const clienteResult = await pool.query(`
+    const clienteResult = await client.query(`
       INSERT INTO clientes (cpf, nome, email, telefone, endereco)
       VALUES ($1, $2, $3, $4, $5)
       ON CONFLICT (cpf) DO UPDATE SET
@@ -143,7 +189,7 @@ app.post('/api/admin/clientes', async (req, res) => {
     // Processar empréstimos
     if (emprestimos && emprestimos.length > 0) {
       for (const emp of emprestimos) {
-        const empResult = await pool.query(`
+        const empResult = await client.query(`
           INSERT INTO emprestimos (cliente_id, valor_total, parcelas, data_contratacao)
           VALUES ($1, $2, $3, $4)
           RETURNING *
@@ -154,7 +200,7 @@ app.post('/api/admin/clientes', async (req, res) => {
         // Processar parcelas
         if (emp.boletos && emp.boletos.length > 0) {
           for (const boleto of emp.boletos) {
-            await pool.query(`
+            await client.query(`
               INSERT INTO parcelas (emprestimo_id, numero_parcela, valor, vencimento, status, data_pagamento)
               VALUES ($1, $2, $3, TO_DATE($4, 'DD-MM-YYYY'), $5, $6)
               ON CONFLICT (emprestimo_id, numero_parcela) DO UPDATE SET
@@ -170,16 +216,21 @@ app.post('/api/admin/clientes', async (req, res) => {
 
     res.json({ success: true, cliente });
   } catch (error) {
-    console.error('❌ Erro ao salvar cliente:', error);
+    console.error('❌ Erro ao salvar cliente:', error.message);
     res.status(500).json({ error: 'Erro interno do servidor' });
+  } finally {
+    if (client) client.release();
   }
 });
 
-// ✅ ROTA PARA LISTAR TODOS OS CLIENTES (ADMIN) - CONSULTA CORRIGIDA
+// ✅ ROTA PARA LISTAR TODOS OS CLIENTES (ADMIN)
 app.get('/api/admin/clientes', async (req, res) => {
+  let client;
   try {
+    client = await pool.connect();
+    
     // Busca todos os clientes
-    const clientesResult = await pool.query(`
+    const clientesResult = await client.query(`
       SELECT * FROM clientes ORDER BY nome
     `);
 
@@ -187,7 +238,7 @@ app.get('/api/admin/clientes', async (req, res) => {
 
     // Para cada cliente, busca empréstimos e parcelas
     for (const cliente of clientesResult.rows) {
-      const emprestimosResult = await pool.query(
+      const emprestimosResult = await client.query(
         `SELECT e.* FROM emprestimos e WHERE e.cliente_id = $1`,
         [cliente.id]
       );
@@ -195,7 +246,7 @@ app.get('/api/admin/clientes', async (req, res) => {
       const emprestimos = [];
 
       for (const emprestimo of emprestimosResult.rows) {
-        const parcelasResult = await pool.query(
+        const parcelasResult = await client.query(
           `SELECT p.*, TO_CHAR(p.vencimento, 'DD-MM-YYYY') as vencimento_formatado 
            FROM parcelas p 
            WHERE p.emprestimo_id = $1 
@@ -229,18 +280,22 @@ app.get('/api/admin/clientes', async (req, res) => {
 
     res.json(clientes);
   } catch (error) {
-    console.error('❌ Erro ao listar clientes:', error);
+    console.error('❌ Erro ao listar clientes:', error.message);
     res.status(500).json({ error: 'Erro interno do servidor' });
+  } finally {
+    if (client) client.release();
   }
 });
 
 // ✅ Rota para gerar PIX
 app.post('/api/payments/pix', async (req, res) => {
+  let client;
   try {
     const { cpf, parcela } = req.body;
+    client = await pool.connect();
     
     // Buscar dados da parcela
-    const result = await pool.query(`
+    const result = await client.query(`
       SELECT p.*, c.nome
       FROM parcelas p
       JOIN emprestimos e ON e.id = p.emprestimo_id
@@ -272,8 +327,10 @@ app.post('/api/payments/pix', async (req, res) => {
 
     res.json(paymentData);
   } catch (error) {
-    console.error('❌ Erro ao gerar PIX:', error);
+    console.error('❌ Erro ao gerar PIX:', error.message);
     res.status(500).json({ error: 'Erro interno do servidor' });
+  } finally {
+    if (client) client.release();
   }
 });
 
@@ -292,8 +349,21 @@ app.get('/admin', (req, res) => {
 });
 
 // ✅ Rota de health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'API funcionando' });
+app.get('/api/health', async (req, res) => {
+  try {
+    const dbConnected = await testarConexao();
+    res.json({ 
+      status: 'OK', 
+      message: 'API funcionando',
+      database: dbConnected ? 'Conectado' : 'Desconectado'
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      status: 'ERROR', 
+      message: 'Problemas na API',
+      database: 'Desconectado'
+    });
+  }
 });
 
 // ✅ DEPOIS servimos o frontend para qualquer outra rota
@@ -350,5 +420,18 @@ app.listen(PORT, async () => {
   console.log(`📱 Frontend: http://localhost:${PORT}`);
   console.log(`👨‍💼 Admin: http://localhost:${PORT}/admin`);
   console.log(`🔗 API: http://localhost:${PORT}/api`);
-  await criarTabelas();
+  
+  // Aguardar um pouco antes de conectar ao banco
+  setTimeout(async () => {
+    console.log('🔄 Conectando ao banco de dados...');
+    await testarConexao();
+    await criarTabelas();
+  }, 2000);
+});
+
+// ✅ TRATAR ENCERRAMENTO GRACIOSO
+process.on('SIGINT', async () => {
+  console.log('🔄 Encerrando conexões...');
+  await pool.end();
+  process.exit(0);
 });
