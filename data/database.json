@@ -1,0 +1,142 @@
+[
+  {
+    "cpf": "07220135319",
+    "nome": "Patricia da Silva Oliveira",
+    "email": "patricia.silva@email.com",
+    "endereco": "Edificio Ipanema, Emperatriz - MA",
+    "telefone": "98984894575",
+    "emprestimos": [
+      {
+        "valorTotal": 7866,
+        "parcelas": 5,
+        "boletos": [
+          {
+            "parcela": 1,
+            "valor": 1573.2,
+            "vencimento": "10-01-2024",
+            "status": "Pago"
+          },
+          {
+            "parcela": 2,
+            "valor": 1573.2,
+            "vencimento": "10-02-2024",
+            "status": "Pago"
+          },
+          {
+            "parcela": 3,
+            "valor": 1573.2,
+            "vencimento": "10-03-2024",
+            "status": "Pendente"
+          },
+          {
+            "parcela": 4,
+            "valor": 1573.2,
+            "vencimento": "10-04-2024",
+            "status": "Pendente"
+          },
+          {
+            "parcela": 5,
+            "valor": 1573.2,
+            "vencimento": "10-05-2024",
+            "status": "Pendente"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "cpf": "70277930162",
+    "nome": "WYLCK LORRHAN NASCIMENTO DOS SANTOS",
+    "email": "cyberevolutionoficial@gmail.com",
+    "endereco": "Rua das Macieiras, N 219, Centro\nCasa",
+    "telefone": "9836521001",
+    "emprestimos": []
+  },
+  {
+    "cpf": "12345678909",
+    "nome": "João da Silva Santos",
+    "email": "joao.silva@email.com",
+    "endereco": "Av. Paulista, 1000, São Paulo - SP",
+    "telefone": "11987654321",
+    "emprestimos": [
+      {
+        "valorTotal": 10000,
+        "parcelas": 4,
+        "boletos": [
+          {
+            "parcela": 1,
+            "valor": 2500,
+            "vencimento": "05-11-2023",
+            "status": "Atrasado"
+          },
+          {
+            "parcela": 2,
+            "valor": 2500,
+            "vencimento": "05-12-2023",
+            "status": "Atrasado"
+          },
+          {
+            "parcela": 3,
+            "valor": 2500,
+            "vencimento": "05-01-2024",
+            "status": "Pendente"
+          },
+          {
+            "parcela": 4,
+            "valor": 2500,
+            "vencimento": "05-02-2024",
+            "status": "Pendente"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "cpf": "79915213387",
+    "nome": "1234",
+    "email": "1234",
+    "telefone": "1234",
+    "endereco": "1234",
+    "emprestimos": [
+      {
+        "valorTotal": 1000,
+        "parcelas": 5,
+        "dataContratacao": "2025-10-18",
+        "boletos": [
+          {
+            "parcela": 1,
+            "valor": 200,
+            "vencimento": "17/11/2025",
+            "status": "Pendente",
+            "txid": "dce4dee5f9e24755b39d3381bafa555f",
+            "valorAtualizado": null
+          },
+          {
+            "parcela": 2,
+            "valor": 200,
+            "vencimento": "17/12/2025",
+            "status": "Pendente"
+          },
+          {
+            "parcela": 3,
+            "valor": 200,
+            "vencimento": "17/01/2026",
+            "status": "Pendente"
+          },
+          {
+            "parcela": 4,
+            "valor": 200,
+            "vencimento": "17/02/2026",
+            "status": "Pendente"
+          },
+          {
+            "parcela": 5,
+            "valor": 200,
+            "vencimento": "17/03/2026",
+            "status": "Pendente"
+          }
+        ]
+      }
+    ]
+  }
+]
