@@ -444,194 +444,18 @@ app.get('/api/admin/emprestimos', async (req, res) => {
   }
 });
 
-// ✅ ROTA PARA CRIAR NOVO EMPRÉSTIMO
-app.post('/api/admin/emprestimos', async (req, res) => {
-  let client;
-  try {
-    const { clienteCpf, valorTotal, parcelas, dataContratacao, boletos } = req.body;
-    
-    console.log('💾 Salvando novo empréstimo:', { clienteCpf, valorTotal, parcelas });
-    
-    if (!isDatabaseConnected) {
-      return res.status(503).json({ error: 'Banco de dados offline' });
-    }
-
-    client = await pool.connect();
-
-    // Buscar ID do cliente
-    const clienteResult = await client.query(
-      'SELECT id FROM clientes WHERE cpf = $1',
-      [clienteCpf]
-    );
-
-    if (clienteResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Cliente não encontrado' });
-    }
-
-    const clienteId = clienteResult.rows[0].id;
-
-    // Inserir empréstimo
-    const emprestimoResult = await client.query(`
-      INSERT INTO emprestimos (cliente_id, valor_total, parcelas, data_contratacao)
-      VALUES ($1, $2, $3, $4)
-      RETURNING *
-    `, [clienteId, valorTotal, parcelas, dataContratacao]);
-
-    const emprestimo = emprestimoResult.rows[0];
-    console.log('✅ Empréstimo criado com ID:', emprestimo.id);
-
-    // Criar parcelas automaticamente
-    await criarParcelasAutomaticamente(client, emprestimo.id, valorTotal, parcelas, dataContratacao);
-
-    res.json({ 
-      success: true, 
-      message: 'Empréstimo criado com sucesso',
-      emprestimo: {
-        id: emprestimo.id,
-        valorTotal: parseFloat(emprestimo.valor_total),
-        parcelas: emprestimo.parcelas,
-        dataContratacao: emprestimo.data_contratacao
-      }
-    });
-  } catch (error) {
-    console.error('❌ Erro ao salvar empréstimo:', error.message);
-    res.status(500).json({ error: 'Erro interno do servidor: ' + error.message });
-  } finally {
-    if (client) client.release();
-  }
-});
-
-// ✅ ROTA PARA BUSCAR DETALHES DE UM EMPRÉSTIMO
-app.get('/api/admin/emprestimos/:id', async (req, res) => {
-  let client;
-  try {
-    const { id } = req.params;
-    console.log('🔍 Buscando empréstimo ID:', id);
-    
-    if (!isDatabaseConnected) {
-      return res.status(503).json({ error: 'Banco de dados offline' });
-    }
-
-    client = await pool.connect();
-    
-    const emprestimoResult = await client.query(`
-      SELECT e.*, c.nome as cliente_nome, c.cpf as cliente_cpf
-      FROM emprestimos e
-      JOIN clientes c ON e.cliente_id = c.id
-      WHERE e.id = $1
-    `, [id]);
-
-    if (emprestimoResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Empréstimo não encontrado' });
-    }
-
-    const emprestimo = emprestimoResult.rows[0];
-
-    // Buscar parcelas
-    const parcelasResult = await client.query(`
-      SELECT p.*, TO_CHAR(p.vencimento, 'DD-MM-YYYY') as vencimento_formatado
-      FROM parcelas p
-      WHERE p.emprestimo_id = $1
-      ORDER BY p.numero_parcela
-    `, [id]);
-
-    const boletos = parcelasResult.rows.map(p => ({
-      id: p.id,
-      parcela: p.numero_parcela,
-      valor: parseFloat(p.valor),
-      vencimento: p.vencimento_formatado,
-      status: p.status,
-      dataPagamento: p.data_pagamento
-    }));
-
-    const response = {
-      id: emprestimo.id,
-      clienteCpf: emprestimo.cliente_cpf,
-      clienteNome: emprestimo.cliente_nome,
-      valorTotal: parseFloat(emprestimo.valor_total),
-      parcelas: emprestimo.parcelas,
-      dataContratacao: emprestimo.data_contratacao,
-      boletos: boletos
-    };
-
-    res.json(response);
-  } catch (error) {
-    console.error('❌ Erro ao buscar empréstimo:', error.message);
-    res.status(500).json({ error: 'Erro interno do servidor: ' + error.message });
-  } finally {
-    if (client) client.release();
-  }
-});
-
-// ✅ ROTA PARA EXCLUIR EMPRÉSTIMO
-app.delete('/api/admin/emprestimos/:id', async (req, res) => {
-  let client;
-  try {
-    const { id } = req.params;
-    console.log('🗑️ Excluindo empréstimo ID:', id);
-    
-    if (!isDatabaseConnected) {
-      return res.status(503).json({ error: 'Banco de dados offline' });
-    }
-
-    client = await pool.connect();
-
-    // Primeiro excluir parcelas
-    await client.query('DELETE FROM parcelas WHERE emprestimo_id = $1', [id]);
-    
-    // Depois excluir empréstimo
-    await client.query('DELETE FROM emprestimos WHERE id = $1', [id]);
-
-    console.log('✅ Empréstimo excluído com sucesso');
-
-    res.json({ 
-      success: true, 
-      message: 'Empréstimo excluído com sucesso'
-    });
-  } catch (error) {
-    console.error('❌ Erro ao excluir empréstimo:', error.message);
-    res.status(500).json({ error: 'Erro interno do servidor: ' + error.message });
-  } finally {
-    if (client) client.release();
-  }
-});
-
-// ✅ FUNÇÃO AUXILIAR PARA CRIAR PARCELAS AUTOMATICAMENTE
-async function criarParcelasAutomaticamente(client, emprestimoId, valorTotal, numeroParcelas, dataContratacao) {
-  const valorParcela = valorTotal / numeroParcelas;
-  const dataBase = new Date(dataContratacao || new Date());
-  
-  console.log(`📅 Criando ${numeroParcelas} parcelas para empréstimo ${emprestimoId}`);
-  
-  for (let i = 1; i <= numeroParcelas; i++) {
-    const dataVencimento = new Date(dataBase);
-    dataVencimento.setMonth(dataVencimento.getMonth() + i);
-    
-    // Formatar data como YYYY-MM-DD para o PostgreSQL
-    const vencimentoFormatado = dataVencimento.toISOString().split('T')[0];
-    
-    await client.query(`
-      INSERT INTO parcelas (emprestimo_id, numero_parcela, valor, vencimento, status)
-      VALUES ($1, $2, $3, $4, 'Pendente')
-    `, [emprestimoId, i, parseFloat(valorParcela.toFixed(2)), vencimentoFormatado]);
-  }
-  
-  console.log('✅ Parcelas criadas com sucesso');
-}
-
-// ✅ ROTAS DE EMPRÉSTIMOS - VERSÃO SIMPLIFICADA E FUNCIONAL
+// ✅ ROTAS DE EMPRÉSTIMOS - ADICIONE ESTE BLOCO COMPLETO
 app.get('/api/admin/emprestimos', async (req, res) => {
   let client;
   try {
-    console.log('🔍 Buscando empréstimos...');
+    console.log('📦 Buscando lista de empréstimos...');
     
-    if (!pool) {
-      return res.status(500).json({ error: 'Pool de conexão não inicializado' });
+    if (!isDatabaseConnected) {
+      return res.status(503).json({ error: 'Banco de dados offline' });
     }
 
     client = await pool.connect();
     
-    // Buscar empréstimos com informações básicas
     const result = await client.query(`
       SELECT 
         e.id,
@@ -656,29 +480,25 @@ app.get('/api/admin/emprestimos', async (req, res) => {
       valorTotal: parseFloat(emp.valor_total),
       parcelas: emp.parcelas,
       dataContratacao: emp.data_contratacao,
-      status: 'Em andamento' // Status simples por enquanto
+      status: 'Em andamento'
     }));
 
     res.json(emprestimos);
     
   } catch (error) {
-    console.error('❌ Erro ao buscar empréstimos:', error.message);
-    res.status(500).json({ 
-      error: 'Erro interno do servidor',
-      details: error.message 
-    });
+    console.error('❌ Erro ao listar empréstimos:', error.message);
+    res.status(500).json({ error: 'Erro interno do servidor' });
   } finally {
     if (client) client.release();
   }
 });
 
-// ✅ ROTA PARA CRIAR EMPRÉSTIMO - VERSÃO SIMPLIFICADA
 app.post('/api/admin/emprestimos', async (req, res) => {
   let client;
   try {
     const { clienteCpf, valorTotal, parcelas, dataContratacao } = req.body;
     
-    console.log('📝 Criando empréstimo:', { clienteCpf, valorTotal, parcelas, dataContratacao });
+    console.log('💾 Salvando empréstimo:', { clienteCpf, valorTotal, parcelas });
 
     if (!clienteCpf || !valorTotal || !parcelas) {
       return res.status(400).json({ error: 'Dados incompletos' });
@@ -706,13 +526,11 @@ app.post('/api/admin/emprestimos', async (req, res) => {
     `, [clienteId, valorTotal, parcelas, dataContratacao || new Date()]);
 
     const emprestimo = emprestimoResult.rows[0];
-    
-    console.log('✅ Empréstimo criado com ID:', emprestimo.id);
 
-    // Criar parcelas simples
+    // Criar parcelas automáticas
     const valorParcela = valorTotal / parcelas;
     for (let i = 1; i <= parcelas; i++) {
-      const dataVencimento = new Date();
+      const dataVencimento = new Date(dataContratacao || new Date());
       dataVencimento.setMonth(dataVencimento.getMonth() + i);
       
       await client.query(`
@@ -729,26 +547,77 @@ app.post('/api/admin/emprestimos', async (req, res) => {
 
   } catch (error) {
     console.error('❌ Erro ao criar empréstimo:', error.message);
-    res.status(500).json({ 
-      error: 'Erro ao criar empréstimo',
-      details: error.message 
-    });
+    res.status(500).json({ error: 'Erro interno do servidor' });
   } finally {
     if (client) client.release();
   }
 });
 
-// ✅ ROTA SIMPLES PARA TESTE
-app.get('/api/admin/test', (req, res) => {
-  res.json({ 
-    message: 'API está funcionando!',
-    timestamp: new Date().toISOString(),
-    routes: {
-      clientes: '/api/admin/clientes',
-      emprestimos: '/api/admin/emprestimos',
-      test: '/api/admin/test'
+app.get('/api/admin/emprestimos/:id', async (req, res) => {
+  let client;
+  try {
+    const { id } = req.params;
+    
+    if (!isDatabaseConnected) {
+      return res.status(503).json({ error: 'Banco de dados offline' });
     }
-  });
+
+    client = await pool.connect();
+    
+    const result = await client.query(`
+      SELECT e.*, c.nome as cliente_nome, c.cpf as cliente_cpf
+      FROM emprestimos e
+      JOIN clientes c ON e.cliente_id = c.id
+      WHERE e.id = $1
+    `, [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Empréstimo não encontrado' });
+    }
+
+    const emprestimo = result.rows[0];
+    res.json({
+      id: emprestimo.id,
+      clienteCpf: emprestimo.cliente_cpf,
+      clienteNome: emprestimo.cliente_nome,
+      valorTotal: parseFloat(emprestimo.valor_total),
+      parcelas: emprestimo.parcelas,
+      dataContratacao: emprestimo.data_contratacao
+    });
+
+  } catch (error) {
+    console.error('❌ Erro ao buscar empréstimo:', error.message);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+app.delete('/api/admin/emprestimos/:id', async (req, res) => {
+  let client;
+  try {
+    const { id } = req.params;
+    
+    if (!isDatabaseConnected) {
+      return res.status(503).json({ error: 'Banco de dados offline' });
+    }
+
+    client = await pool.connect();
+
+    await client.query('DELETE FROM parcelas WHERE emprestimo_id = $1', [id]);
+    await client.query('DELETE FROM emprestimos WHERE id = $1', [id]);
+
+    res.json({ 
+      success: true, 
+      message: 'Empréstimo excluído com sucesso'
+    });
+
+  } catch (error) {
+    console.error('❌ Erro ao excluir empréstimo:', error.message);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  } finally {
+    if (client) client.release();
+  }
 });
 
 // ✅ INICIAR SERVIDOR
