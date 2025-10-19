@@ -1,14 +1,14 @@
 const express = require('express');
-const { Pool } = require('pg'); // ← ADICIONE ESTA LINHA
+const { Pool } = require('pg');
 const cors = require('cors');
 const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
-// ✅ CONEXÃO COM POSTGRESQL
+// ✅ CONEXÃO COM POSTGRESQL - URL CORRIGIDA
 const pool = new Pool({
-  connectionString: 'postgresql://admin:VI5ygJqYR2aGq2BdzdbnenKeN5vCNAxg@dpg-cv8b6t6n91rc73cv1k4g-a.oregon-postgres.render.com/sistema_emprestimos_1v0r',
+  connectionString: 'postgresql://admin:VI5ygJqYR2aGq2BdzdbnenKeN5vCNAxg@dpg-d3q7scs9c44c73ci2l40-a/sistema_emprestimos',
   ssl: { rejectUnauthorized: false }
 });
 
@@ -57,8 +57,8 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Servir arquivos estáticos
-app.use(express.static(path.join(__dirname, '../')));
+// ✅ SERVIR ARQUIVOS ESTÁTICOS - CAMINHO CORRETO
+app.use(express.static(__dirname));
 
 // ✅ ROTA PARA BUSCAR CLIENTE POR CPF
 app.get('/api/clients/:cpf', async (req, res) => {
@@ -258,7 +258,7 @@ app.get('/api/webhooks/status/:txid', (req, res) => {
 
 // ✅ Rota para admin page
 app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, '../admin.html'));
+  res.sendFile(path.join(__dirname, 'admin.html'));
 });
 
 // ✅ Rota de health check
@@ -268,7 +268,7 @@ app.get('/api/health', (req, res) => {
 
 // ✅ DEPOIS servimos o frontend para qualquer outra rota
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../index.html'));
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // ✅ Funções auxiliares
