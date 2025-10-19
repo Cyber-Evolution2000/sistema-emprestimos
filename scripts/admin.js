@@ -190,19 +190,12 @@ class AdminSystem {
         alertas = alertas.slice(0, 5);
 
         if (alertas.length === 0) {
-            alertasList.innerHTML = `
-                <div class="alert alert-success">
-                    <i class="fas fa-check-circle"></i> Nenhum alerta no momento
-                </div>
-            `;
+            alertasList.innerHTML = '<div class="alert alert-success"><i class="fas fa-check-circle"></i> Nenhum alerta no momento</div>';
         } else {
             alertas.forEach(alerta => {
                 const alertElement = document.createElement('div');
                 alertElement.className = `alert alert-${alerta.tipo} alert-dismissible fade show`;
-                alertElement.innerHTML = `
-                    ${alerta.mensagem}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                `;
+                alertElement.innerHTML = `${alerta.mensagem}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
                 alertasList.appendChild(alertElement);
             });
         }
@@ -493,55 +486,29 @@ class AdminSystem {
         return valorOriginal + juros;
     }
 
-   // No arquivo scripts/admin.js, substitua o método salvarDados:
+    async salvarDados() {
+        try {
+            const response = await fetch('/api/admin/clientes', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(this.clientes)
+            });
 
-async salvarDados() {
-    try {
-        const response = await fetch('/api/admin/clientes', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(this.clientes)
-        });
-
-        if (response.ok) {
-            console.log('Dados salvos com sucesso no servidor!');
-            return true;
-        } else {
-            throw new Error('Erro ao salvar no servidor');
+            if (response.ok) {
+                console.log('Dados salvos com sucesso no servidor!');
+                return true;
+            } else {
+                throw new Error('Erro ao salvar no servidor');
+            }
+        } catch (error) {
+            console.error('Erro ao salvar no servidor, usando localStorage:', error);
+            // Fallback para localStorage
+            localStorage.setItem('clientesData', JSON.stringify(this.clientes));
+            return false;
         }
-    } catch (error) {
-        console.error('Erro ao salvar no servidor, usando localStorage:', error);
-        // Fallback para localStorage
-        localStorage.setItem('clientesData', JSON.stringify(this.clientes));
-        return false;
     }
-}
-
-// E também atualize o carregarDados():
-async carregarDados() {
-    try {
-        // Tentar carregar da API
-        const response = await fetch('/api/admin/clientes');
-        if (response.ok) {
-            this.clientes = await response.json();
-            console.log('Dados carregados do servidor!');
-        } else {
-            throw new Error('API não disponível');
-        }
-    } catch (error) {
-        console.error('Erro ao carregar da API, usando dados locais:', error);
-        // Fallback para dados locais
-        this.clientes = await this.carregarDadosLocais();
-    }
-    
-    this.atualizarDashboard();
-    this.atualizarTabelaClientes();
-    this.atualizarTabelaEmprestimos();
-    this.atualizarTabelaPagamentos();
-    this.atualizarSelectClientes();
-}
 
     marcarComoPago(cpf, indexBoleto) {
         const cliente = this.clientes.find(c => c.cpf === cpf);
