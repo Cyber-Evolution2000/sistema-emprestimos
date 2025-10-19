@@ -367,36 +367,34 @@ function exibirEmprestimos(emprestimos) {
 
 async function abrirModalEmprestimo(emprestimoId = null) {
   try {
-    // Carregar lista de clientes para o select
-    const clientesResponse = await fetch('/api/admin/clientes');
-    if (!clientesResponse.ok) throw new Error('Erro ao carregar clientes');
+    console.log('📝 Abrindo modal de empréstimo, ID:', emprestimoId);
     
-    const clientes = await clientesResponse.json();
-    
-    const selectCliente = document.getElementById('clienteSelect');
-    selectCliente.innerHTML = '<option value="">Selecione um cliente</option>';
-    
-    clientes.forEach(cliente => {
-      const option = document.createElement('option');
-      option.value = cliente.cpf;
-      option.textContent = `${cliente.nome} - ${cliente.cpf}`;
-      selectCliente.appendChild(option);
-    });
+    // Carregar clientes no select
+    await carregarClientesParaSelect();
 
     const modal = new bootstrap.Modal(document.getElementById('modalEmprestimo'));
     const form = document.getElementById('formEmprestimo');
     
+    // Resetar form
     form.reset();
     document.getElementById('emprestimoId').value = '';
+    
+    // Configurar data padrão (hoje)
+    document.getElementById('dataContratacao').value = new Date().toISOString().split('T')[0];
     
     if (emprestimoId) {
       // Modo edição
       document.getElementById('modalEmprestimoTitle').textContent = 'Editar Empréstimo';
       
+      console.log('🔍 Carregando dados do empréstimo:', emprestimoId);
       const emprestimoResponse = await fetch(`/api/admin/emprestimos/${emprestimoId}`);
-      if (!emprestimoResponse.ok) throw new Error('Erro ao carregar empréstimo');
+      
+      if (!emprestimoResponse.ok) {
+        throw new Error('Erro ao carregar empréstimo: ' + emprestimoResponse.status);
+      }
       
       const emprestimo = await emprestimoResponse.json();
+      console.log('📊 Dados do empréstimo:', emprestimo);
       
       document.getElementById('emprestimoId').value = emprestimo.id;
       document.getElementById('clienteSelect').value = emprestimo.clienteCpf;
@@ -407,13 +405,14 @@ async function abrirModalEmprestimo(emprestimoId = null) {
     } else {
       // Modo novo
       document.getElementById('modalEmprestimoTitle').textContent = 'Novo Empréstimo';
-      document.getElementById('dataContratacao').value = new Date().toISOString().split('T')[0];
     }
     
     modal.show();
+    console.log('✅ Modal aberto com sucesso');
+    
   } catch (error) {
     console.error('❌ Erro ao abrir modal de empréstimo:', error);
-    alert('Erro: ' + error.message);
+    alert('Erro ao abrir formulário: ' + error.message);
   }
 }
 
@@ -425,8 +424,27 @@ async function salvarEmprestimo() {
     const parcelas = parseInt(document.getElementById('parcelas').value);
     const dataContratacao = document.getElementById('dataContratacao').value;
 
-    if (!clienteCpf || !valorTotal || !parcelas) {
-      alert('Por favor, preencha todos os campos obrigatórios.');
+    console.log('💾 Dados do empréstimo:', {
+      emprestimoId,
+      clienteCpf,
+      valorTotal,
+      parcelas,
+      dataContratacao
+    });
+
+    // Validações
+    if (!clienteCpf) {
+      alert('Por favor, selecione um cliente.');
+      return;
+    }
+
+    if (!valorTotal || valorTotal <= 0) {
+      alert('Por favor, informe um valor total válido.');
+      return;
+    }
+
+    if (!parcelas || parcelas <= 0) {
+      alert('Por favor, informe um número de parcelas válido.');
       return;
     }
 
@@ -434,23 +452,29 @@ async function salvarEmprestimo() {
       clienteCpf: clienteCpf,
       valorTotal: valorTotal,
       parcelas: parcelas,
-      dataContratacao: dataContratacao
+      dataContratacao: dataContratacao || new Date().toISOString().split('T')[0]
     };
 
-    const url = emprestimoId ? `/api/admin/emprestimos/${emprestimoId}` : '/api/admin/emprestimos';
-    const method = emprestimoId ? 'PUT' : 'POST';
+    console.log('📤 Enviando dados:', emprestimoData);
 
-    const response = await fetch(url, {
-      method: method,
+    const response = await fetch('/api/admin/emprestimos', {
+      method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(emprestimoData)
     });
 
-    if (!response.ok) throw new Error('Erro ao salvar empréstimo');
+    console.log('📥 Resposta status:', response.status);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Erro na resposta:', errorText);
+      throw new Error(`Erro ${response.status}: ${errorText}`);
+    }
 
     const result = await response.json();
+    console.log('✅ Sucesso:', result);
     
     bootstrap.Modal.getInstance(document.getElementById('modalEmprestimo')).hide();
     alert('✅ ' + result.message);
@@ -574,4 +598,33 @@ function formatarData(dataString) {
   if (!dataString) return 'N/A';
   const data = new Date(dataString);
   return data.toLocaleDateString('pt-BR');
+}
+
+// ✅ FUNÇÃO PARA CARREGAR CLIENTES NO SELECT
+async function carregarClientesParaSelect() {
+  try {
+    const response = await fetch('/api/admin/clientes');
+    if (!response.ok) throw new Error('Erro ao carregar clientes');
+    
+    const clientes = await response.json();
+    const selectCliente = document.getElementById('clienteSelect');
+    
+    // Limpar select
+    selectCliente.innerHTML = '<option value="">Selecione um cliente</option>';
+    
+    // Adicionar clientes
+    clientes.forEach(cliente => {
+      const option = document.createElement('option');
+      option.value = cliente.cpf;
+      option.textContent = `${cliente.nome} - ${cliente.cpf}`;
+      option.setAttribute('data-nome', cliente.nome);
+      selectCliente.appendChild(option);
+    });
+    
+    console.log(`✅ ${clientes.length} clientes carregados para seleção`);
+    
+  } catch (error) {
+    console.error('❌ Erro ao carregar clientes para select:', error);
+    // Não alertar aqui para não interromper o fluxo
+  }
 }

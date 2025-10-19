@@ -344,55 +344,71 @@
     </div>
 
     <!-- Modal Empréstimo -->
-    <div class="modal fade" id="modalEmprestimo" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="modalEmprestimoTitle">Novo Empréstimo</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="formEmprestimo">
-                        <input type="hidden" id="emprestimoId">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="clienteSelect" class="form-label">Cliente *</label>
-                                    <select class="form-select" id="clienteSelect" required>
-                                        <option value="">Selecione um cliente</option>
-                                    </select>
-                                </div>
+<div class="modal fade" id="modalEmprestimo" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalEmprestimoTitle">Novo Empréstimo</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formEmprestimo">
+                    <input type="hidden" id="emprestimoId">
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="clienteSelect" class="form-label">Cliente *</label>
+                                <select class="form-select" id="clienteSelect" required>
+                                    <option value="">Selecione um cliente</option>
+                                </select>
+                                <div class="form-text">O cliente deve estar cadastrado no sistema</div>
                             </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="valorTotal" class="form-label">Valor Total *</label>
-                                    <input type="number" class="form-control" id="valorTotal" step="0.01" required>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="valorTotal" class="form-label">Valor Total *</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">R$</span>
+                                    <input type="number" class="form-control" id="valorTotal" step="0.01" min="0.01" required placeholder="1000.00">
                                 </div>
                             </div>
                         </div>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="parcelas" class="form-label">Número de Parcelas *</label>
-                                    <input type="number" class="form-control" id="parcelas" required>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="dataContratacao" class="form-label">Data de Contratação</label>
-                                    <input type="date" class="form-control" id="dataContratacao">
-                                </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="parcelas" class="form-label">Número de Parcelas *</label>
+                                <input type="number" class="form-control" id="parcelas" min="1" max="60" required placeholder="12">
+                                <div class="form-text">Máximo de 60 parcelas</div>
                             </div>
                         </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" onclick="salvarEmprestimo()">Salvar Empréstimo</button>
-                </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="dataContratacao" class="form-label">Data de Contratação *</label>
+                                <input type="date" class="form-control" id="dataContratacao" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <small>
+                            <i class="fas fa-info-circle"></i>
+                            As parcelas serão criadas automaticamente com vencimentos mensais a partir da data de contratação.
+                        </small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="salvarEmprestimo()">
+                    <i class="fas fa-save"></i> Salvar Empréstimo
+                </button>
             </div>
         </div>
     </div>
+</div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
