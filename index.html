@@ -322,28 +322,23 @@
 // ✅ VERSÃO SEM FIREBASE - index.html
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    // ✅ SISTEMA LOCALSTORAGE - MESMO DO ADMIN
+    // SISTEMA LOCALSTORAGE - MESMO DO ADMIN
     function carregarDadosClientes() {
         try {
-            // Busca do localStorage (mesmo que o admin usa)
             const clientesData = localStorage.getItem('clientesData');
-            
             if (clientesData) {
                 const dados = JSON.parse(clientesData);
                 console.log('✅ Dados carregados do localStorage:', dados);
                 return dados;
             }
-            
             console.log('⚠️ Nenhum dado encontrado no localStorage');
             return [];
-            
         } catch (error) {
             console.error('❌ Erro ao carregar dados:', error);
             return [];
         }
     }
 
-    // Buscar cliente por CPF - AGORA NO LOCALSTORAGE
     function buscarClientePorCPF(cpf) {
         const clientes = carregarDadosClientes();
         console.log('🔍 Buscando CPF:', cpf, 'em', clientes);
@@ -352,27 +347,43 @@
         return cliente;
     }
 
-    // Calcular valor atualizado com juros
     function calcularValorAtualizado(parcela) {
-        const hoje = new Date();
-        const vencimento = new Date(parcela.vencimento.split('-').reverse().join('-'));
-        const valorOriginal = parseFloat(parcela.valor);
-        
-        if (hoje > vencimento && parcela.status !== 'Pago') {
-            // Juros de 2% ao mês + multa de 2%
-            const diasAtraso = Math.floor((hoje - vencimento) / (1000 * 60 * 60 * 24));
-            const mesesAtraso = diasAtraso / 30;
-            const juros = valorOriginal * 0.02 * mesesAtraso;
-            const multa = valorOriginal * 0.02;
-            return valorOriginal + juros + multa;
+        try {
+            const hoje = new Date();
+            
+            // ✅ CORREÇÃO: Converter data do formato DD-MM-YYYY
+            const [dia, mes, ano] = parcela.vencimento.split('-');
+            const vencimento = new Date(ano, mes - 1, dia);
+            
+            const valorOriginal = parseFloat(parcela.valor);
+            
+            if (hoje > vencimento && parcela.status !== 'Pago') {
+                // ✅ JUROS DE 1% AO DIA
+                const diasAtraso = Math.floor((hoje - vencimento) / (1000 * 60 * 60 * 24));
+                const juros = valorOriginal * 0.01 * diasAtraso;
+                const valorComJuros = valorOriginal + juros;
+                
+                console.log(`💰 Parcela ${parcela.parcela}: ${diasAtraso} dias atrasada, juros: R$ ${juros.toFixed(2)}`);
+                return valorComJuros;
+            }
+            
+            return valorOriginal;
+            
+        } catch (error) {
+            console.error('❌ Erro ao calcular valor:', error);
+            return parseFloat(parcela.valor);
         }
-        
-        return valorOriginal;
     }
 
-    // Formatar data
     function formatarData(data) {
-        return new Date(data.split('-').reverse().join('-')).toLocaleDateString('pt-BR');
+        try {
+            // ✅ CORREÇÃO: Converter de DD-MM-YYYY para formato brasileiro
+            const [dia, mes, ano] = data.split('-');
+            return `${dia}/${mes}/${ano}`;
+        } catch (error) {
+            console.error('❌ Erro ao formatar data:', error);
+            return 'Data inválida';
+        }
     }
 
     document.getElementById('consultaForm').addEventListener('submit', function(e) {
@@ -380,22 +391,18 @@
         
         const cpf = document.getElementById('cpf').value;
         
-        // Validação simples do CPF
         if (cpf.length !== 11 || isNaN(cpf)) {
             alert('Por favor, digite um CPF válido com 11 dígitos numéricos.');
             return;
         }
         
-        // Mostrar loading
         document.getElementById('loading').style.display = 'block';
         document.getElementById('resultado').style.display = 'none';
         
-        // ✅ CONSULTA INSTANTÂNEA - LOCALSTORAGE
         setTimeout(function() {
             document.getElementById('loading').style.display = 'none';
             document.getElementById('resultado').style.display = 'block';
             
-            // Buscar cliente - DADOS DO LOCALSTORAGE
             const cliente = buscarClientePorCPF(cpf);
             
             if (!cliente) {
@@ -404,7 +411,6 @@
                         <div class="card-body text-center">
                             <h4>Cliente não encontrado</h4>
                             <p>Nenhum cliente cadastrado com o CPF: ${cpf}</p>
-                            <p class="small text-muted">Verifique se o CPF está correto ou entre em contato conosco.</p>
                         </div>
                     </div>
                 `;
@@ -439,9 +445,20 @@
                     if (emprestimo.boletos && emprestimo.boletos.length > 0) {
                         emprestimo.boletos.forEach(parcela => {
                             totalParcelas++;
-                            if (parcela.status === 'Pago') parcelasPagas++;
-                            if (parcela.status === 'Pendente') parcelasPendentes++;
-                            if (parcela.status === 'Atrasado') parcelasAtrasadas++;
+                            
+                            // ✅ VERIFICAR SE ESTÁ ATRASADA
+                            const hoje = new Date();
+                            const [dia, mes, ano] = parcela.vencimento.split('-');
+                            const vencimento = new Date(ano, mes - 1, dia);
+                            const estaAtrasada = hoje > vencimento && parcela.status !== 'Pago';
+                            
+                            if (parcela.status === 'Pago') {
+                                parcelasPagas++;
+                            } else if (estaAtrasada) {
+                                parcelasAtrasadas++;
+                            } else if (parcela.status === 'Pendente') {
+                                parcelasPendentes++;
+                            }
                             
                             const valorAtual = calcularValorAtualizado(parcela);
                             const temJuros = valorAtual > parseFloat(parcela.valor);
@@ -461,7 +478,7 @@
                                     <div class="col-12 col-md-6">
                                         <p class="mb-1"><strong>Valor Original:</strong> R$ ${parseFloat(parcela.valor).toFixed(2)}</p>
                                         <p class="mb-1"><strong>Valor Atual:</strong> <span class="valor-atualizado">R$ ${valorAtual.toFixed(2)}</span></p>
-                                        ${temJuros ? '<p class="mb-1 text-warning small"><i class="bi bi-exclamation-triangle"></i> Inclui juros por atraso</p>' : ''}
+                                        ${temJuros ? '<p class="mb-1 text-warning small">⚠️ Inclui juros por atraso</p>' : ''}
                                         <p class="mb-1"><strong>Vencimento:</strong> ${formatarData(parcela.vencimento)}</p>
                                         <p class="mb-1"><strong>Empréstimo:</strong> R$ ${emprestimo.valorTotal.toFixed(2)} (${emprestimo.parcelas} parcelas)</p>
                                     </div>
@@ -471,7 +488,7 @@
                                                 PAGAR VIA PIX
                                             </button>
                                         ` : `
-                                            <span class="text-success">✅ <strong>PAGO</strong></span>
+                                            <span class="text-success">✅ PAGO</span>
                                         `}
                                     </div>
                                 </div>
@@ -481,7 +498,7 @@
                     }
                 });
                 
-                // Resumo
+                // ✅ RESUMO ATUALIZADO COM ATRASADAS
                 html += `
                     <div class="card mt-4">
                         <div class="card-header bg-dark">
@@ -506,6 +523,11 @@
                                     <small>Atrasadas</small>
                                 </div>
                             </div>
+                            ${parcelasAtrasadas > 0 ? `
+                                <div class="alert alert-danger mt-3">
+                                    ⚠️ <strong>${parcelasAtrasadas} parcela(s) atrasada(s)</strong> - Juros de 1% ao dia sendo aplicados
+                                </div>
+                            ` : ''}
                         </div>
                     </div>
                 `;
@@ -513,13 +535,9 @@
             
             html += '</div></div>';
             document.getElementById('resultado').innerHTML = html;
-            
-            // Rolar para os resultados
-            document.getElementById('resultado').scrollIntoView({ behavior: 'smooth' });
         }, 100);
     });
     
-    // Função para mostrar QR Code quando clicar em PAGAR VIA PIX
     function mostrarQRCode(numeroParcela, valor, nomeCliente) {
         const modalHTML = `
             <div class="modal fade" id="qrcodeModal" tabindex="-1">
@@ -536,35 +554,23 @@
                                 <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI0ZGRiIvPjxwYXRoIGQ9Ik00MCA0MGgxMjB2MTIwSDQweiIgZmlsbD0iIzAwMCIvPjwvc3ZnPg==" alt="QR Code PIX" class="img-fluid" style="max-width: 200px;">
                             </div>
                             <p class="small mt-3">Escaneie o QR Code com seu app bancário</p>
-                            <p class="small text-muted">Chave PIX: sistema.emprestimos@pix.com</p>
                         </div>
                     </div>
                 </div>
             </div>
         `;
         
-        // Adicionar modal ao body se não existir
         if (!document.getElementById('qrcodeModal')) {
             document.body.insertAdjacentHTML('beforeend', modalHTML);
         }
         
-        // Mostrar modal
         const modal = new bootstrap.Modal(document.getElementById('qrcodeModal'));
         modal.show();
     }
     
-    // Máscara para CPF (apenas números)
     document.getElementById('cpf').addEventListener('input', function(e) {
         this.value = this.value.replace(/\D/g, '');
     });
-
-    // Máscara para CPF (apenas números)
-    document.getElementById('cpf').addEventListener('input', function(e) {
-        this.value = this.value.replace(/\D/g, '');
-    });
-
-    // ✅ REMOVIDA A ATUALIZAÇÃO AUTOMÁTICA QUE CAUSAVA PISCAR
-    // Agora a consulta só acontece quando o usuário clica no botão
 </script>
 </body>
 </html>

@@ -324,58 +324,64 @@ class AdminSystem {
     }
 
     salvarEmprestimo() {
-        const clienteCpf = document.getElementById('clienteSelect').value;
-        const valorTotal = parseFloat(document.getElementById('valorTotal').value);
-        const parcelas = parseInt(document.getElementById('parcelas').value);
-        const dataContratacao = document.getElementById('dataContratacao').value || new Date().toISOString().split('T')[0];
+    const clienteCpf = document.getElementById('clienteSelect').value;
+    const valorTotal = parseFloat(document.getElementById('valorTotal').value);
+    const parcelas = parseInt(document.getElementById('parcelas').value);
+    const dataContratacao = document.getElementById('dataContratacao').value || new Date().toISOString().split('T')[0];
 
-        if (!clienteCpf || !valorTotal || !parcelas) {
-            alert('Preencha todos os campos obrigatórios!');
-            return;
-        }
-
-        const cliente = this.clientes.find(c => c.cpf === clienteCpf);
-        if (!cliente) {
-            alert('Cliente não encontrado!');
-            return;
-        }
-
-        const valorParcela = valorTotal / parcelas;
-        const boletos = [];
-        const dataBase = new Date(dataContratacao);
-
-        for (let i = 1; i <= parcelas; i++) {
-            const dataVencimento = new Date(dataBase);
-            dataVencimento.setMonth(dataVencimento.getMonth() + i);
-            
-            boletos.push({
-                parcela: i,
-                valor: parseFloat(valorParcela.toFixed(2)),
-                vencimento: dataVencimento.toLocaleDateString('pt-BR'),
-                status: 'Pendente'
-            });
-        }
-
-        const novoEmprestimo = {
-            valorTotal: valorTotal,
-            parcelas: parcelas,
-            dataContratacao: dataContratacao,
-            boletos: boletos
-        };
-
-        if (!cliente.emprestimos) {
-            cliente.emprestimos = [];
-        }
-        cliente.emprestimos.push(novoEmprestimo);
-        
-        this.salvarDados();
-        this.atualizarTabelaEmprestimos();
-        this.atualizarTabelaPagamentos();
-        this.atualizarDashboard();
-        
-        bootstrap.Modal.getInstance(document.getElementById('modalEmprestimo')).hide();
-        alert('Empréstimo criado com sucesso!');
+    if (!clienteCpf || !valorTotal || !parcelas) {
+        alert('Preencha todos os campos obrigatórios!');
+        return;
     }
+
+    const cliente = this.clientes.find(c => c.cpf === clienteCpf);
+    if (!cliente) {
+        alert('Cliente não encontrado!');
+        return;
+    }
+
+    const valorParcela = valorTotal / parcelas;
+    const boletos = [];
+    const dataBase = new Date(dataContratacao);
+
+    for (let i = 1; i <= parcelas; i++) {
+        const dataVencimento = new Date(dataBase);
+        dataVencimento.setMonth(dataVencimento.getMonth() + i);
+        
+        // ✅ CORREÇÃO: Formato de data correto (DD-MM-YYYY)
+        const dia = String(dataVencimento.getDate()).padStart(2, '0');
+        const mes = String(dataVencimento.getMonth() + 1).padStart(2, '0');
+        const ano = dataVencimento.getFullYear();
+        const dataFormatada = `${dia}-${mes}-${ano}`;
+        
+        boletos.push({
+            parcela: i,
+            valor: parseFloat(valorParcela.toFixed(2)),
+            vencimento: dataFormatada, // ✅ Agora no formato correto
+            status: 'Pendente'
+        });
+    }
+
+    const novoEmprestimo = {
+        valorTotal: valorTotal,
+        parcelas: parcelas,
+        dataContratacao: dataContratacao,
+        boletos: boletos
+    };
+
+    if (!cliente.emprestimos) {
+        cliente.emprestimos = [];
+    }
+    cliente.emprestimos.push(novoEmprestimo);
+    
+    this.salvarDados();
+    this.atualizarTabelaEmprestimos();
+    this.atualizarTabelaPagamentos();
+    this.atualizarDashboard();
+    
+    bootstrap.Modal.getInstance(document.getElementById('modalEmprestimo')).hide();
+    alert('Empréstimo criado com sucesso!');
+}
 
     formatarCPF(cpf) {
         return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
