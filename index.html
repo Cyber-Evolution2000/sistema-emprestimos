@@ -1,611 +1,249 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Consulta de Empréstimos - Sistema PIX</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        :root {
-            --gold: #D4AF37;
-            --dark-gold: #B8860B;
-            --light-gold: #F5E8C8;
-            --black: #000000;
-            --dark-gray: #1A1A1A;
-            --light-gray: #2A2A2A;
-        }
-        
-        body {
-            background-color: var(--black);
-            color: white;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            line-height: 1.6;
-        }
-        
-        .logo-container {
-            text-align: center;
-            padding: 2rem 0 1.5rem 0;
-            background: linear-gradient(135deg, var(--dark-gray) 0%, var(--black) 100%);
-            border-bottom: 3px solid var(--gold);
-        }
-        
-        .logo {
-            max-width: 300px;
-            height: auto;
-        }
-        
-        .header {
-            background: transparent;
-            color: var(--gold);
-            padding: 0 0 1.5rem 0;
-            margin-bottom: 1rem;
-        }
-        
-        .card {
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(212, 175, 55, 0.2);
-            margin-bottom: 20px;
-            border: 1px solid var(--light-gray);
-            background-color: var(--dark-gray);
-            color: white;
-        }
-        
-        .card-header {
-            background: linear-gradient(135deg, var(--gold) 0%, var(--dark-gold) 100%);
-            color: var(--black);
-            border-radius: 10px 10px 0 0 !important;
-            font-weight: 700;
-            padding: 1rem;
-            font-size: 1.1rem;
-        }
-        
-        .btn-primary {
-            background: linear-gradient(135deg, var(--gold) 0%, var(--dark-gold) 100%);
-            border: none;
-            color: var(--black);
-            font-weight: 600;
-            padding: 12px;
-        }
-        
-        .btn-primary:hover {
-            background: linear-gradient(135deg, var(--dark-gold) 0%, #9C6F00 100%);
-            color: var(--black);
-        }
-        
-        .btn-pix {
-            background: linear-gradient(135deg, #32BCAD 0%, #1E9B8F 100%);
-            border: none;
-            color: white;
-            font-weight: 600;
-            padding: 10px 20px;
-        }
-        
-        .btn-pix:hover {
-            background: linear-gradient(135deg, #1E9B8F 0%, #167A70 100%);
-            color: white;
-        }
-        
-        .form-control {
-            background-color: var(--light-gray);
-            border: 1px solid var(--gold);
-            color: white;
-            padding: 12px;
-        }
-        
-        .form-control:focus {
-            background-color: var(--light-gray);
-            border-color: var(--gold);
-            color: white;
-            box-shadow: 0 0 0 0.25rem rgba(212, 175, 55, 0.25);
-        }
-        
-        .form-label {
-            color: var(--light-gold);
-            font-weight: 500;
-        }
-        
-        .form-text {
-            color: #AAAAAA;
-        }
-        
-        .status-pago {
-            color: #28a745;
-            font-weight: bold;
-        }
-        
-        .status-pendente {
-            color: #dc3545;
-            font-weight: bold;
-        }
-        
-        .status-atrasado {
-            color: var(--gold);
-            font-weight: bold;
-        }
-        
-        .qrcode-container {
-            text-align: center;
-            padding: 15px;
-            background-color: var(--light-gray);
-            border-radius: 10px;
-            margin-top: 15px;
-            border: 1px solid var(--gold);
-        }
-        
-        .valor-atualizado {
-            font-weight: bold;
-            color: var(--gold);
-        }
-        
-        .footer {
-            background-color: var(--dark-gray);
-            color: var(--light-gold);
-            padding: 1.5rem 0;
-            margin-top: 2rem;
-            border-top: 2px solid var(--gold);
-        }
-        
-        .loading {
-            display: none;
-            text-align: center;
-            padding: 20px;
-        }
-        
-        .spinner-border.text-primary {
-            color: var(--gold) !important;
-        }
-        
-        .parcela-item {
-            border-left: 4px solid var(--gold);
-            padding-left: 15px;
-            margin-bottom: 15px;
-            background-color: var(--light-gray);
-            border-radius: 8px;
-            padding: 15px;
-            color: white;
-        }
-        
-        .parcela-paga {
-            border-left: 4px solid #28a745;
-            opacity: 0.8;
-        }
-        
-        .badge-gold {
-            background-color: var(--gold);
-            color: var(--black);
-        }
-        
-        .parcela-header {
-            display: flex;
-            justify-content: between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        
-        .cliente-info {
-            background: linear-gradient(135deg, var(--dark-gray) 0%, var(--light-gray) 100%);
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 20px;
-            border: 1px solid var(--gold);
-            color: white;
-        }
-        
-        /* Melhorias para mobile */
-        @media (max-width: 768px) {
-            .logo {
-                max-width: 250px;
+// ✅ VERSÃO SEM FIREBASE - index.html
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // ✅ SISTEMA LOCALSTORAGE - MESMO DO ADMIN
+    function carregarDadosClientes() {
+        try {
+            // Busca do localStorage (mesmo que o admin usa)
+            const clientesData = localStorage.getItem('clientesData');
+            
+            if (clientesData) {
+                const dados = JSON.parse(clientesData);
+                console.log('✅ Dados carregados do localStorage:', dados);
+                return dados;
             }
             
-            .header {
-                padding: 0 0 1rem 0;
-            }
+            console.log('⚠️ Nenhum dado encontrado no localStorage');
+            return [];
             
-            .header h1 {
-                font-size: 1.8rem;
-            }
-            
-            .header p {
-                font-size: 1rem;
-            }
-            
-            .card {
-                margin-bottom: 15px;
-            }
-            
-            .card-body {
-                padding: 1rem;
-            }
-            
-            .btn-lg {
-                padding: 14px;
-                font-size: 1.1rem;
-            }
-            
-            .parcela-item {
-                padding: 15px;
-                margin-bottom: 15px;
-            }
-            
-            .container {
-                padding-left: 15px;
-                padding-right: 15px;
-            }
+        } catch (error) {
+            console.error('❌ Erro ao carregar dados:', error);
+            return [];
         }
-        
-        @media (max-width: 576px) {
-            .logo {
-                max-width: 200px;
-            }
-            
-            .header h1 {
-                font-size: 1.5rem;
-            }
-            
-            .header p {
-                font-size: 0.9rem;
-            }
-            
-            .card-header {
-                font-size: 1rem;
-                padding: 0.8rem;
-            }
-            
-            .btn-lg {
-                padding: 12px;
-                font-size: 1rem;
-            }
-        }
-    </style>
-</head>
-<body>
-    <!-- Logo -->
-    <div class="logo-container">
-        <img src="img/logo.png" alt="Logo" class="logo">
-    </div>
-
-    <div class="header text-center">
-        <div class="container">
-            <h1 class="display-5 fw-bold">Consulta de Empréstimos</h1>
-            <p class="lead mb-0">Verifique suas parcelas e realize pagamentos via PIX</p>
-        </div>
-    </div>
-
-    <div class="container">
-        <!-- Loading -->
-        <div id="loading" class="loading">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Carregando...</span>
-            </div>
-            <p class="mt-2">Consultando dados...</p>
-        </div>
-
-        <!-- Formulário de Consulta -->
-        <div class="row justify-content-center">
-            <div class="col-12 col-md-8 col-lg-6">
-                <div class="card">
-                    <div class="card-header text-center">
-                        Consultar Parcelas
-                    </div>
-                    <div class="card-body p-3 p-md-4">
-                        <form id="consultaForm">
-                            <div class="mb-3">
-                                <label for="cpf" class="form-label">CPF</label>
-                                <input type="text" class="form-control" id="cpf" placeholder="Digite seu CPF (apenas números)" required maxlength="11">
-                                <div class="form-text">Digite apenas números, sem pontos ou traços</div>
-                            </div>
-                            <div class="d-grid">
-                                <button type="submit" class="btn btn-primary btn-lg">
-                                    Consultar Parcelas
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Resultados -->
-        <div id="resultado" class="mt-4" style="display: none;">
-            <!-- Aqui serão exibidos os resultados da consulta -->
-        </div>
-    </div>
-
-    <div class="footer text-center">
-        <div class="container">
-            <p class="mb-1">&copy; 2024 Sistema de Empréstimos. Todos os direitos reservados.</p>
-            <p class="small mb-0">Pagamentos via PIX Sicoob</p>
-        </div>
-    </div>
-
-    <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // ✅ SISTEMA ATUALIZADO - LÊ DIRETAMENTE DO LOCALSTORAGE DO ADMIN
-        function carregarDadosClientes() {
-            try {
-                // Busca diretamente do localStorage que o admin usa
-                const clientesData = localStorage.getItem('clientesData');
-                
-                if (clientesData) {
-                    const dados = JSON.parse(clientesData);
-                    console.log('✅ Dados carregados do admin:', dados);
-                    return dados;
-                }
-                
-                console.log('⚠️ Nenhum dado encontrado no localStorage');
-                
-                // ✅ Tenta buscar de outras chaves possíveis
-                const alternativeKeys = ['clientes', 'emprestimosData', 'sistema_emprestimos'];
-                for (let key of alternativeKeys) {
-                    const altData = localStorage.getItem(key);
-                    if (altData) {
-                        console.log(`✅ Dados encontrados na chave alternativa: ${key}`);
-                        return JSON.parse(altData);
-                    }
-                }
-                
-                console.log('❌ Nenhum dado encontrado em nenhuma chave');
-                return [];
-                
-            } catch (error) {
-                console.error('❌ Erro ao carregar dados:', error);
-                return [];
-            }
-        }
-
-async function buscarClientePorCPF(cpf) {
-    try {
-        console.log('🔍 Buscando CPF no Firebase:', cpf);
-        
-        const snapshot = await db.collection('clientes')
-            .where('cpf', '==', cpf)
-            .get();
-        
-        if (snapshot.empty) {
-            console.log('❌ Cliente não encontrado no Firebase');
-            return null;
-        }
-        
-        const doc = snapshot.docs[0];
-        const cliente = { id: doc.id, ...doc.data() };
-        console.log('✅ Cliente encontrado:', cliente);
-        return cliente;
-        
-    } catch (error) {
-        console.error('❌ Erro na busca Firebase:', error);
-        return null;
     }
-}
 
-        // Calcular valor atualizado com juros
-        function calcularValorAtualizado(parcela) {
-            const hoje = new Date();
-            const vencimento = new Date(parcela.vencimento.split('-').reverse().join('-'));
-            const valorOriginal = parseFloat(parcela.valor);
-            
-            if (hoje > vencimento && parcela.status !== 'Pago') {
-                // Juros de 2% ao mês + multa de 2%
-                const diasAtraso = Math.floor((hoje - vencimento) / (1000 * 60 * 60 * 24));
-                const mesesAtraso = diasAtraso / 30;
-                const juros = valorOriginal * 0.02 * mesesAtraso;
-                const multa = valorOriginal * 0.02;
-                return valorOriginal + juros + multa;
-            }
-            
-            return valorOriginal;
+    // Buscar cliente por CPF - AGORA NO LOCALSTORAGE
+    function buscarClientePorCPF(cpf) {
+        const clientes = carregarDadosClientes();
+        console.log('🔍 Buscando CPF:', cpf, 'em', clientes);
+        const cliente = clientes.find(cliente => cliente.cpf === cpf);
+        console.log('🔍 Cliente encontrado:', cliente);
+        return cliente;
+    }
+
+    // Calcular valor atualizado com juros
+    function calcularValorAtualizado(parcela) {
+        const hoje = new Date();
+        const vencimento = new Date(parcela.vencimento.split('-').reverse().join('-'));
+        const valorOriginal = parseFloat(parcela.valor);
+        
+        if (hoje > vencimento && parcela.status !== 'Pago') {
+            // Juros de 2% ao mês + multa de 2%
+            const diasAtraso = Math.floor((hoje - vencimento) / (1000 * 60 * 60 * 24));
+            const mesesAtraso = diasAtraso / 30;
+            const juros = valorOriginal * 0.02 * mesesAtraso;
+            const multa = valorOriginal * 0.02;
+            return valorOriginal + juros + multa;
         }
+        
+        return valorOriginal;
+    }
 
-        // Formatar data
-        function formatarData(data) {
-            return new Date(data.split('-').reverse().join('-')).toLocaleDateString('pt-BR');
+    // Formatar data
+    function formatarData(data) {
+        return new Date(data.split('-').reverse().join('-')).toLocaleDateString('pt-BR');
+    }
+
+    document.getElementById('consultaForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const cpf = document.getElementById('cpf').value;
+        
+        // Validação simples do CPF
+        if (cpf.length !== 11 || isNaN(cpf)) {
+            alert('Por favor, digite um CPF válido com 11 dígitos numéricos.');
+            return;
         }
-
-        document.getElementById('consultaForm').addEventListener('submit', function(e) {
-            e.preventDefault();
+        
+        // Mostrar loading
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('resultado').style.display = 'none';
+        
+        // ✅ CONSULTA INSTANTÂNEA - LOCALSTORAGE
+        setTimeout(function() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('resultado').style.display = 'block';
             
-            const cpf = document.getElementById('cpf').value;
+            // Buscar cliente - DADOS DO LOCALSTORAGE
+            const cliente = buscarClientePorCPF(cpf);
             
-            // Validação simples do CPF
-            if (cpf.length !== 11 || isNaN(cpf)) {
-                alert('Por favor, digite um CPF válido com 11 dígitos numéricos.');
+            if (!cliente) {
+                document.getElementById('resultado').innerHTML = `
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <h4>Cliente não encontrado</h4>
+                            <p>Nenhum cliente cadastrado com o CPF: ${cpf}</p>
+                            <p class="small text-muted">Verifique se o CPF está correto ou entre em contato conosco.</p>
+                        </div>
+                    </div>
+                `;
                 return;
             }
             
-            // Mostrar loading
-            document.getElementById('loading').style.display = 'block';
-            document.getElementById('resultado').style.display = 'none';
-            
-            // ✅ CONSULTA INSTANTÂNEA
-            setTimeout(function() {
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('resultado').style.display = 'block';
-                
-                // Buscar cliente - DADOS EM TEMPO REAL
-                const cliente = buscarClientePorCPF(cpf);
-                
-                if (!cliente) {
-                    document.getElementById('resultado').innerHTML = `
-                        <div class="card">
-                            <div class="card-body text-center">
-                                <h4>Cliente não encontrado</h4>
-                                <p>Nenhum cliente cadastrado com o CPF: ${cpf}</p>
-                                <p class="small text-muted">Verifique se o CPF está correto ou entre em contato conosco.</p>
-                                <button class="btn btn-warning mt-2" onclick="debugLocalStorage()">🔍 Ver Dados no Sistema</button>
-                            </div>
+            let html = `
+                <div class="card">
+                    <div class="card-header text-center">
+                        Dados do Cliente
+                    </div>
+                    <div class="card-body">
+                        <div class="cliente-info">
+                            <h5>${cliente.nome}</h5>
+                            <p class="mb-1"><strong>CPF:</strong> ${cliente.cpf}</p>
+                            <p class="mb-1"><strong>Telefone:</strong> ${cliente.telefone}</p>
+                            <p class="mb-0"><strong>Email:</strong> ${cliente.email}</p>
                         </div>
-                    `;
-                    return;
-                }
+            `;
+            
+            if (!cliente.emprestimos || cliente.emprestimos.length === 0) {
+                html += '<p class="text-center">Nenhum empréstimo encontrado para este cliente.</p>';
+            } else {
+                html += '<h5 class="mb-3">Todas as Parcelas</h5>';
                 
-                let html = `
-                    <div class="card">
-                        <div class="card-header text-center">
-                            Dados do Cliente
+                let totalParcelas = 0;
+                let parcelasPagas = 0;
+                let parcelasPendentes = 0;
+                let parcelasAtrasadas = 0;
+                
+                cliente.emprestimos.forEach(emprestimo => {
+                    if (emprestimo.boletos && emprestimo.boletos.length > 0) {
+                        emprestimo.boletos.forEach(parcela => {
+                            totalParcelas++;
+                            if (parcela.status === 'Pago') parcelasPagas++;
+                            if (parcela.status === 'Pendente') parcelasPendentes++;
+                            if (parcela.status === 'Atrasado') parcelasAtrasadas++;
+                            
+                            const valorAtual = calcularValorAtualizado(parcela);
+                            const temJuros = valorAtual > parseFloat(parcela.valor);
+                            const statusClass = parcela.status === 'Pago' ? 'status-pago' : 
+                                               parcela.status === 'Atrasado' ? 'status-atrasado' : 'status-pendente';
+                            
+                            const classeParcela = parcela.status === 'Pago' ? 'parcela-item parcela-paga' : 'parcela-item';
+                            
+                            html += `
+                            <div class="${classeParcela}">
+                                <div class="parcela-header">
+                                    <h5 class="mb-0">Parcela ${parcela.parcela}</h5>
+                                    <span class="badge badge-gold px-3 py-2 rounded-pill ${statusClass}">${parcela.status}</span>
+                                </div>
+                                
+                                <div class="row align-items-center">
+                                    <div class="col-12 col-md-6">
+                                        <p class="mb-1"><strong>Valor Original:</strong> R$ ${parseFloat(parcela.valor).toFixed(2)}</p>
+                                        <p class="mb-1"><strong>Valor Atual:</strong> <span class="valor-atualizado">R$ ${valorAtual.toFixed(2)}</span></p>
+                                        ${temJuros ? '<p class="mb-1 text-warning small"><i class="bi bi-exclamation-triangle"></i> Inclui juros por atraso</p>' : ''}
+                                        <p class="mb-1"><strong>Vencimento:</strong> ${formatarData(parcela.vencimento)}</p>
+                                        <p class="mb-1"><strong>Empréstimo:</strong> R$ ${emprestimo.valorTotal.toFixed(2)} (${emprestimo.parcelas} parcelas)</p>
+                                    </div>
+                                    <div class="col-12 col-md-6 text-center text-md-end mt-2 mt-md-0">
+                                        ${parcela.status !== 'Pago' ? `
+                                            <button class="btn btn-pix btn-lg" onclick="mostrarQRCode(${parcela.parcela}, ${valorAtual}, '${cliente.nome.replace(/'/g, "\\'")}')">
+                                                PAGAR VIA PIX
+                                            </button>
+                                        ` : `
+                                            <span class="text-success">✅ <strong>PAGO</strong></span>
+                                        `}
+                                    </div>
+                                </div>
+                            </div>
+                            `;
+                        });
+                    }
+                });
+                
+                // Resumo
+                html += `
+                    <div class="card mt-4">
+                        <div class="card-header bg-dark">
+                            <h6 class="mb-0">📊 Resumo das Parcelas</h6>
                         </div>
                         <div class="card-body">
-                            <div class="cliente-info">
-                                <h5>${cliente.nome}</h5>
-                                <p class="mb-1"><strong>CPF:</strong> ${cliente.cpf}</p>
-                                <p class="mb-1"><strong>Telefone:</strong> ${cliente.telefone}</p>
-                                <p class="mb-0"><strong>Email:</strong> ${cliente.email}</p>
-                            </div>
-                `;
-                
-                if (!cliente.emprestimos || cliente.emprestimos.length === 0) {
-                    html += '<p class="text-center">Nenhum empréstimo encontrado para este cliente.</p>';
-                } else {
-                    html += '<h5 class="mb-3">Todas as Parcelas</h5>';
-                    
-                    let totalParcelas = 0;
-                    let parcelasPagas = 0;
-                    let parcelasPendentes = 0;
-                    let parcelasAtrasadas = 0;
-                    
-                    cliente.emprestimos.forEach(emprestimo => {
-                        if (emprestimo.boletos && emprestimo.boletos.length > 0) {
-                            emprestimo.boletos.forEach(parcela => {
-                                totalParcelas++;
-                                if (parcela.status === 'Pago') parcelasPagas++;
-                                if (parcela.status === 'Pendente') parcelasPendentes++;
-                                if (parcela.status === 'Atrasado') parcelasAtrasadas++;
-                                
-                                const valorAtual = calcularValorAtualizado(parcela);
-                                const temJuros = valorAtual > parseFloat(parcela.valor);
-                                const statusClass = parcela.status === 'Pago' ? 'status-pago' : 
-                                                   parcela.status === 'Atrasado' ? 'status-atrasado' : 'status-pendente';
-                                
-                                const classeParcela = parcela.status === 'Pago' ? 'parcela-item parcela-paga' : 'parcela-item';
-                                
-                                html += `
-                                <div class="${classeParcela}">
-                                    <div class="parcela-header">
-                                        <h5 class="mb-0">Parcela ${parcela.parcela}</h5>
-                                        <span class="badge badge-gold px-3 py-2 rounded-pill ${statusClass}">${parcela.status}</span>
-                                    </div>
-                                    
-                                    <div class="row align-items-center">
-                                        <div class="col-12 col-md-6">
-                                            <p class="mb-1"><strong>Valor Original:</strong> R$ ${parseFloat(parcela.valor).toFixed(2)}</p>
-                                            <p class="mb-1"><strong>Valor Atual:</strong> <span class="valor-atualizado">R$ ${valorAtual.toFixed(2)}</span></p>
-                                            ${temJuros ? '<p class="mb-1 text-warning small"><i class="bi bi-exclamation-triangle"></i> Inclui juros por atraso</p>' : ''}
-                                            <p class="mb-1"><strong>Vencimento:</strong> ${formatarData(parcela.vencimento)}</p>
-                                            <p class="mb-1"><strong>Empréstimo:</strong> R$ ${emprestimo.valorTotal.toFixed(2)} (${emprestimo.parcelas} parcelas)</p>
-                                        </div>
-                                        <div class="col-12 col-md-6 text-center text-md-end mt-2 mt-md-0">
-                                            ${parcela.status !== 'Pago' ? `
-                                                <button class="btn btn-pix btn-lg" onclick="mostrarQRCode(${parcela.parcela}, ${valorAtual}, '${cliente.nome.replace(/'/g, "\\'")}')">
-                                                    PAGAR VIA PIX
-                                                </button>
-                                            ` : `
-                                                <span class="text-success">✅ <strong>PAGO</strong></span>
-                                            `}
-                                        </div>
-                                    </div>
+                            <div class="row text-center">
+                                <div class="col-6 col-md-3">
+                                    <h4 class="text-primary">${totalParcelas}</h4>
+                                    <small>Total</small>
                                 </div>
-                                `;
-                            });
-                        }
-                    });
-                    
-                    // Resumo
-                    html += `
-                        <div class="card mt-4">
-                            <div class="card-header bg-dark">
-                                <h6 class="mb-0">📊 Resumo das Parcelas</h6>
-                            </div>
-                            <div class="card-body">
-                                <div class="row text-center">
-                                    <div class="col-6 col-md-3">
-                                        <h4 class="text-primary">${totalParcelas}</h4>
-                                        <small>Total</small>
-                                    </div>
-                                    <div class="col-6 col-md-3">
-                                        <h4 class="text-success">${parcelasPagas}</h4>
-                                        <small>Pagas</small>
-                                    </div>
-                                    <div class="col-6 col-md-3">
-                                        <h4 class="text-warning">${parcelasPendentes}</h4>
-                                        <small>Pendentes</small>
-                                    </div>
-                                    <div class="col-6 col-md-3">
-                                        <h4 class="text-danger">${parcelasAtrasadas}</h4>
-                                        <small>Atrasadas</small>
-                                    </div>
+                                <div class="col-6 col-md-3">
+                                    <h4 class="text-success">${parcelasPagas}</h4>
+                                    <small>Pagas</small>
                                 </div>
-                            </div>
-                        </div>
-                    `;
-                }
-                
-                html += '</div></div>';
-                document.getElementById('resultado').innerHTML = html;
-                
-                // Rolar para os resultados
-                document.getElementById('resultado').scrollIntoView({ behavior: 'smooth' });
-            }, 100);
-        });
-        
-        // Função para mostrar QR Code quando clicar em PAGAR VIA PIX
-        function mostrarQRCode(numeroParcela, valor, nomeCliente) {
-            const modalHTML = `
-                <div class="modal fade" id="qrcodeModal" tabindex="-1">
-                    <div class="modal-dialog modal-dialog-centered">
-                        <div class="modal-content" style="background-color: var(--dark-gray); border: 2px solid var(--gold);">
-                            <div class="modal-header" style="border-bottom: 1px solid var(--gold);">
-                                <h5 class="modal-title" style="color: var(--gold);">Pagamento via PIX</h5>
-                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                            </div>
-                            <div class="modal-body text-center">
-                                <p><strong>${nomeCliente}</strong></p>
-                                <p>Parcela ${numeroParcela} - <strong class="valor-atualizado">R$ ${valor.toFixed(2)}</strong></p>
-                                <div class="qrcode-container">
-                                    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI0ZGRiIvPjxwYXRoIGQ9Ik00MCA0MGgxMjB2MTIwSDQweiIgZmlsbD0iIzAwMCIvPjwvc3ZnPg==" alt="QR Code PIX" class="img-fluid" style="max-width: 200px;">
+                                <div class="col-6 col-md-3">
+                                    <h4 class="text-warning">${parcelasPendentes}</h4>
+                                    <small>Pendentes</small>
                                 </div>
-                                <p class="small mt-3">Escaneie o QR Code com seu app bancário</p>
-                                <p class="small text-muted">Chave PIX: sistema.emprestimos@pix.com</p>
+                                <div class="col-6 col-md-3">
+                                    <h4 class="text-danger">${parcelasAtrasadas}</h4>
+                                    <small>Atrasadas</small>
+                                </div>
                             </div>
                         </div>
                     </div>
+                `;
+            }
+            
+            html += '</div></div>';
+            document.getElementById('resultado').innerHTML = html;
+            
+            // Rolar para os resultados
+            document.getElementById('resultado').scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+    });
+    
+    // Função para mostrar QR Code quando clicar em PAGAR VIA PIX
+    function mostrarQRCode(numeroParcela, valor, nomeCliente) {
+        const modalHTML = `
+            <div class="modal fade" id="qrcodeModal" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content" style="background-color: var(--dark-gray); border: 2px solid var(--gold);">
+                        <div class="modal-header" style="border-bottom: 1px solid var(--gold);">
+                            <h5 class="modal-title" style="color: var(--gold);">Pagamento via PIX</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body text-center">
+                            <p><strong>${nomeCliente}</strong></p>
+                            <p>Parcela ${numeroParcela} - <strong class="valor-atualizado">R$ ${valor.toFixed(2)}</strong></p>
+                            <div class="qrcode-container">
+                                <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI0ZGRiIvPjxwYXRoIGQ9Ik00MCA0MGgxMjB2MTIwSDQweiIgZmlsbD0iIzAwMCIvPjwvc3ZnPg==" alt="QR Code PIX" class="img-fluid" style="max-width: 200px;">
+                            </div>
+                            <p class="small mt-3">Escaneie o QR Code com seu app bancário</p>
+                            <p class="small text-muted">Chave PIX: sistema.emprestimos@pix.com</p>
+                        </div>
+                    </div>
                 </div>
-            `;
-            
-            // Adicionar modal ao body se não existir
-            if (!document.getElementById('qrcodeModal')) {
-                document.body.insertAdjacentHTML('beforeend', modalHTML);
-            }
-            
-            // Mostrar modal
-            const modal = new bootstrap.Modal(document.getElementById('qrcodeModal'));
-            modal.show();
+            </div>
+        `;
+        
+        // Adicionar modal ao body se não existir
+        if (!document.getElementById('qrcodeModal')) {
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
         }
         
-        // Função de debug para ver o que está no localStorage
-        function debugLocalStorage() {
-            const todasChaves = [];
-            for (let i = 0; i < localStorage.length; i++) {
-                const chave = localStorage.key(i);
-                todasChaves.push(chave);
-            }
-            
-            alert(`Chaves no localStorage:\n${todasChaves.join('\n')}\n\nClientesData: ${localStorage.getItem('clientesData')}`);
-        }
-        
-        // Máscara para CPF (apenas números)
-        document.getElementById('cpf').addEventListener('input', function(e) {
-            this.value = this.value.replace(/\D/g, '');
-        });
+        // Mostrar modal
+        const modal = new bootstrap.Modal(document.getElementById('qrcodeModal'));
+        modal.show();
+    }
+    
+    // Máscara para CPF (apenas números)
+    document.getElementById('cpf').addEventListener('input', function(e) {
+        this.value = this.value.replace(/\D/g, '');
+    });
 
-        // ✅ ATUALIZAÇÃO AUTOMÁTICA - Verifica dados a cada 2 segundos
-        setInterval(() => {
-            if (document.getElementById('resultado').style.display !== 'none') {
-                const cpf = document.getElementById('cpf').value;
-                if (cpf.length === 11) {
-                    document.getElementById('consultaForm').dispatchEvent(new Event('submit'));
-                }
+    // ✅ ATUALIZAÇÃO AUTOMÁTICA - Verifica dados a cada 2 segundos
+    setInterval(() => {
+        if (document.getElementById('resultado').style.display !== 'none') {
+            const cpf = document.getElementById('cpf').value;
+            if (cpf.length === 11) {
+                document.getElementById('consultaForm').dispatchEvent(new Event('submit'));
             }
-        }, 2000);
-    </script>
-</body>
-</html>
+        }
+    }, 2000);
+</script>
