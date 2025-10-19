@@ -619,6 +619,138 @@ async function criarParcelasAutomaticamente(client, emprestimoId, valorTotal, nu
   console.log('✅ Parcelas criadas com sucesso');
 }
 
+// ✅ ROTAS DE EMPRÉSTIMOS - VERSÃO SIMPLIFICADA E FUNCIONAL
+app.get('/api/admin/emprestimos', async (req, res) => {
+  let client;
+  try {
+    console.log('🔍 Buscando empréstimos...');
+    
+    if (!pool) {
+      return res.status(500).json({ error: 'Pool de conexão não inicializado' });
+    }
+
+    client = await pool.connect();
+    
+    // Buscar empréstimos com informações básicas
+    const result = await client.query(`
+      SELECT 
+        e.id,
+        e.valor_total,
+        e.parcelas,
+        e.data_contratacao,
+        c.nome as cliente_nome,
+        c.cpf as cliente_cpf
+      FROM emprestimos e
+      JOIN clientes c ON e.cliente_id = c.id
+      ORDER BY e.created_at DESC
+    `);
+
+    console.log(`✅ Encontrados ${result.rows.length} empréstimos`);
+
+    const emprestimos = result.rows.map(emp => ({
+      id: emp.id,
+      cliente: {
+        nome: emp.cliente_nome,
+        cpf: emp.cliente_cpf
+      },
+      valorTotal: parseFloat(emp.valor_total),
+      parcelas: emp.parcelas,
+      dataContratacao: emp.data_contratacao,
+      status: 'Em andamento' // Status simples por enquanto
+    }));
+
+    res.json(emprestimos);
+    
+  } catch (error) {
+    console.error('❌ Erro ao buscar empréstimos:', error.message);
+    res.status(500).json({ 
+      error: 'Erro interno do servidor',
+      details: error.message 
+    });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+// ✅ ROTA PARA CRIAR EMPRÉSTIMO - VERSÃO SIMPLIFICADA
+app.post('/api/admin/emprestimos', async (req, res) => {
+  let client;
+  try {
+    const { clienteCpf, valorTotal, parcelas, dataContratacao } = req.body;
+    
+    console.log('📝 Criando empréstimo:', { clienteCpf, valorTotal, parcelas, dataContratacao });
+
+    if (!clienteCpf || !valorTotal || !parcelas) {
+      return res.status(400).json({ error: 'Dados incompletos' });
+    }
+
+    client = await pool.connect();
+
+    // Buscar cliente
+    const clienteResult = await client.query(
+      'SELECT id FROM clientes WHERE cpf = $1',
+      [clienteCpf]
+    );
+
+    if (clienteResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Cliente não encontrado' });
+    }
+
+    const clienteId = clienteResult.rows[0].id;
+
+    // Inserir empréstimo
+    const emprestimoResult = await client.query(`
+      INSERT INTO emprestimos (cliente_id, valor_total, parcelas, data_contratacao)
+      VALUES ($1, $2, $3, $4)
+      RETURNING *
+    `, [clienteId, valorTotal, parcelas, dataContratacao || new Date()]);
+
+    const emprestimo = emprestimoResult.rows[0];
+    
+    console.log('✅ Empréstimo criado com ID:', emprestimo.id);
+
+    // Criar parcelas simples
+    const valorParcela = valorTotal / parcelas;
+    for (let i = 1; i <= parcelas; i++) {
+      const dataVencimento = new Date();
+      dataVencimento.setMonth(dataVencimento.getMonth() + i);
+      
+      await client.query(`
+        INSERT INTO parcelas (emprestimo_id, numero_parcela, valor, vencimento, status)
+        VALUES ($1, $2, $3, $4, 'Pendente')
+      `, [emprestimo.id, i, valorParcela.toFixed(2), dataVencimento.toISOString().split('T')[0]]);
+    }
+
+    res.json({ 
+      success: true, 
+      message: 'Empréstimo criado com sucesso!',
+      id: emprestimo.id
+    });
+
+  } catch (error) {
+    console.error('❌ Erro ao criar empréstimo:', error.message);
+    res.status(500).json({ 
+      error: 'Erro ao criar empréstimo',
+      details: error.message 
+    });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+// ✅ ROTA SIMPLES PARA TESTE
+app.get('/api/admin/test', (req, res) => {
+  res.json({ 
+    message: 'API está funcionando!',
+    timestamp: new Date().toISOString(),
+    routes: {
+      clientes: '/api/admin/clientes',
+      emprestimos: '/api/admin/emprestimos',
+      test: '/api/admin/test'
+    }
+  });
+});
+
 // ✅ INICIAR SERVIDOR
 app.listen(PORT, async () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
@@ -645,3 +777,4 @@ process.on('SIGINT', async () => {
   }
   process.exit(0);
 });
+

@@ -42,11 +42,19 @@ async function carregarClientes() {
 
 async function carregarEmprestimos() {
   try {
-    console.log('🔄 Carregando empréstimos...');
+    console.log('🔄 Iniciando carregamento de empréstimos...');
+    
     const response = await fetch('/api/admin/emprestimos');
     
-    console.log('📊 Status da resposta:', response.status);
-    console.log('🔗 URL:', response.url);
+    console.log('📊 Status:', response.status, response.statusText);
+    
+    if (response.status === 404) {
+      throw new Error('Rota de empréstimos não encontrada. Verifique o servidor.');
+    }
+    
+    if (response.status === 503) {
+      throw new Error('Banco de dados offline. Tente novamente em alguns instantes.');
+    }
     
     if (!response.ok) {
       throw new Error(`Erro HTTP: ${response.status} ${response.statusText}`);
@@ -57,20 +65,46 @@ async function carregarEmprestimos() {
     
     if (!contentType || !contentType.includes('application/json')) {
       const text = await response.text();
-      console.error('❌ Resposta não é JSON:', text.substring(0, 200));
-      throw new Error('Resposta do servidor não é JSON');
+      console.error('❌ Resposta não é JSON. Conteúdo recebido:', text.substring(0, 200));
+      throw new Error('Servidor retornou HTML em vez de JSON. Verifique a rota.');
     }
     
     const emprestimos = await response.json();
-    console.log('✅ Empréstimos carregados:', emprestimos);
+    console.log('✅ Empréstimos carregados:', emprestimos.length, 'itens');
     
     exibirEmprestimos(emprestimos);
+    
   } catch (error) {
-    console.error('❌ Erro ao carregar empréstimos:', error);
-    alert('Erro ao carregar empréstimos: ' + error.message);
+    console.error('❌ Erro detalhado ao carregar empréstimos:', error);
+    
+    // Mensagem mais amigável para o usuário
+    let mensagemErro = 'Erro ao carregar empréstimos: ';
+    
+    if (error.message.includes('Rota não encontrada') || error.message.includes('HTML')) {
+      mensagemErro += 'Problema de configuração no servidor.';
+    } else if (error.message.includes('Banco de dados offline')) {
+      mensagemErro += 'Banco de dados temporariamente indisponível.';
+    } else if (error.message.includes('Failed to fetch')) {
+      mensagemErro += 'Erro de conexão. Verifique sua internet.';
+    } else {
+      mensagemErro += error.message;
+    }
+    
+    alert(mensagemErro);
+    
+    // Exibir mensagem na tabela
+    const tbody = document.getElementById('tabelaEmprestimos');
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" class="text-center text-danger py-4">
+          <i class="fas fa-exclamation-triangle"></i><br>
+          ${mensagemErro}<br>
+          <small>Tente recarregar a página ou verificar o console para mais detalhes.</small>
+        </td>
+      </tr>
+    `;
   }
 }
-
 async function carregarPagamentos() {
     try {
         const response = await fetch('/api/admin/clientes');
