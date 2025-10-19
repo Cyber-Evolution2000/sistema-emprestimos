@@ -8,7 +8,7 @@ const PORT = process.env.PORT || 10000;
 
 // ✅ CONEXÃO COM POSTGRESQL - URL CORRIGIDA
 const pool = new Pool({
-  connectionString: 'postgresql://admin:VI5ygJqYR2aGq2BdzdbnenKeN5vCNAxg@dpg-d3q7scs9c44c73ci2l40-a/sistema_emprestimos',
+  connectionString: 'postgresql://admin:VI5ygJqYR2aGq2BdzdbnenKeN5vCNAxg@dpg-cvjf6m5umphs6s7v8qg0-a.oregon-postgres.render.com/sistema_emprestimos',
   ssl: { rejectUnauthorized: false }
 });
 
@@ -60,47 +60,59 @@ app.use(express.urlencoded({ extended: true }));
 // ✅ SERVIR ARQUIVOS ESTÁTICOS - CAMINHO CORRETO
 app.use(express.static(__dirname));
 
-// ✅ ROTA PARA BUSCAR CLIENTE POR CPF
+// ✅ ROTA PARA BUSCAR CLIENTE POR CPF - CONSULTA CORRIGIDA
 app.get('/api/clients/:cpf', async (req, res) => {
   try {
     const { cpf } = req.params;
     
-    const result = await pool.query(`
-      SELECT c.*, 
-             json_agg(
-               json_build_object(
-                 'id', e.id,
-                 'valorTotal', e.valor_total,
-                 'parcelas', e.parcelas,
-                 'dataContratacao', e.data_contratacao,
-                 'boletos', (
-                   SELECT json_agg(
-                     json_build_object(
-                       'id', p.id,
-                       'parcela', p.numero_parcela,
-                       'valor', p.valor,
-                       'vencimento', TO_CHAR(p.vencimento, 'DD-MM-YYYY'),
-                       'status', p.status,
-                       'dataPagamento', p.data_pagamento
-                     )
-                   )
-                   FROM parcelas p
-                   WHERE p.emprestimo_id = e.id
-                   ORDER BY p.numero_parcela
-                 )
-               )
-             ) as emprestimos
-      FROM clientes c
-      LEFT JOIN emprestimos e ON e.cliente_id = c.id
-      WHERE c.cpf = $1
-      GROUP BY c.id
-    `, [cpf]);
+    // Primeiro busca o cliente
+    const clienteResult = await pool.query(
+      'SELECT * FROM clientes WHERE cpf = $1',
+      [cpf]
+    );
 
-    if (result.rows.length === 0) {
+    if (clienteResult.rows.length === 0) {
       return res.status(404).json({ error: 'Cliente não encontrado' });
     }
 
-    const cliente = result.rows[0];
+    const cliente = clienteResult.rows[0];
+
+    // Busca os empréstimos do cliente
+    const emprestimosResult = await pool.query(
+      `SELECT e.* FROM emprestimos e WHERE e.cliente_id = $1`,
+      [cliente.id]
+    );
+
+    cliente.emprestimos = [];
+
+    // Para cada empréstimo, busca as parcelas
+    for (const emprestimo of emprestimosResult.rows) {
+      const parcelasResult = await pool.query(
+        `SELECT p.*, TO_CHAR(p.vencimento, 'DD-MM-YYYY') as vencimento_formatado 
+         FROM parcelas p 
+         WHERE p.emprestimo_id = $1 
+         ORDER BY p.numero_parcela`,
+        [emprestimo.id]
+      );
+
+      const boletos = parcelasResult.rows.map(p => ({
+        id: p.id,
+        parcela: p.numero_parcela,
+        valor: parseFloat(p.valor),
+        vencimento: p.vencimento_formatado,
+        status: p.status,
+        dataPagamento: p.data_pagamento
+      }));
+
+      cliente.emprestimos.push({
+        id: emprestimo.id,
+        valorTotal: parseFloat(emprestimo.valor_total),
+        parcelas: emprestimo.parcelas,
+        dataContratacao: emprestimo.data_contratacao,
+        boletos: boletos
+      });
+    }
+
     const clienteComJuros = calculateInterestAndUpdateStatus(cliente);
     res.json(clienteComJuros);
   } catch (error) {
@@ -163,41 +175,59 @@ app.post('/api/admin/clientes', async (req, res) => {
   }
 });
 
-// ✅ ROTA PARA LISTAR TODOS OS CLIENTES (ADMIN)
+// ✅ ROTA PARA LISTAR TODOS OS CLIENTES (ADMIN) - CONSULTA CORRIGIDA
 app.get('/api/admin/clientes', async (req, res) => {
   try {
-    const result = await pool.query(`
-      SELECT c.*, 
-             json_agg(
-               json_build_object(
-                 'id', e.id,
-                 'valorTotal', e.valor_total,
-                 'parcelas', e.parcelas,
-                 'dataContratacao', e.data_contratacao,
-                 'boletos', (
-                   SELECT json_agg(
-                     json_build_object(
-                       'id', p.id,
-                       'parcela', p.numero_parcela,
-                       'valor', p.valor,
-                       'vencimento', TO_CHAR(p.vencimento, 'DD-MM-YYYY'),
-                       'status', p.status,
-                       'dataPagamento', p.data_pagamento
-                     )
-                   )
-                   FROM parcelas p
-                   WHERE p.emprestimo_id = e.id
-                   ORDER BY p.numero_parcela
-                 )
-               )
-             ) as emprestimos
-      FROM clientes c
-      LEFT JOIN emprestimos e ON e.cliente_id = c.id
-      GROUP BY c.id
-      ORDER BY c.nome
+    // Busca todos os clientes
+    const clientesResult = await pool.query(`
+      SELECT * FROM clientes ORDER BY nome
     `);
 
-    res.json(result.rows);
+    const clientes = [];
+
+    // Para cada cliente, busca empréstimos e parcelas
+    for (const cliente of clientesResult.rows) {
+      const emprestimosResult = await pool.query(
+        `SELECT e.* FROM emprestimos e WHERE e.cliente_id = $1`,
+        [cliente.id]
+      );
+
+      const emprestimos = [];
+
+      for (const emprestimo of emprestimosResult.rows) {
+        const parcelasResult = await pool.query(
+          `SELECT p.*, TO_CHAR(p.vencimento, 'DD-MM-YYYY') as vencimento_formatado 
+           FROM parcelas p 
+           WHERE p.emprestimo_id = $1 
+           ORDER BY p.numero_parcela`,
+          [emprestimo.id]
+        );
+
+        const boletos = parcelasResult.rows.map(p => ({
+          id: p.id,
+          parcela: p.numero_parcela,
+          valor: parseFloat(p.valor),
+          vencimento: p.vencimento_formatado,
+          status: p.status,
+          dataPagamento: p.data_pagamento
+        }));
+
+        emprestimos.push({
+          id: emprestimo.id,
+          valorTotal: parseFloat(emprestimo.valor_total),
+          parcelas: emprestimo.parcelas,
+          dataContratacao: emprestimo.data_contratacao,
+          boletos: boletos
+        });
+      }
+
+      clientes.push({
+        ...cliente,
+        emprestimos: emprestimos
+      });
+    }
+
+    res.json(clientes);
   } catch (error) {
     console.error('❌ Erro ao listar clientes:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
