@@ -558,15 +558,13 @@
         this.value = this.value.replace(/\D/g, '');
     });
 
-    // ✅ ATUALIZAÇÃO AUTOMÁTICA - Verifica dados a cada 2 segundos
-    setInterval(() => {
-        if (document.getElementById('resultado').style.display !== 'none') {
-            const cpf = document.getElementById('cpf').value;
-            if (cpf.length === 11) {
-                document.getElementById('consultaForm').dispatchEvent(new Event('submit'));
-            }
-        }
-    }, 2000);
+    // Máscara para CPF (apenas números)
+    document.getElementById('cpf').addEventListener('input', function(e) {
+        this.value = this.value.replace(/\D/g, '');
+    });
+
+    // ✅ REMOVIDA A ATUALIZAÇÃO AUTOMÁTICA QUE CAUSAVA PISCAR
+    // Agora a consulta só acontece quando o usuário clica no botão
 </script>
 </body>
 </html>
