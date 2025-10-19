@@ -41,16 +41,34 @@ async function carregarClientes() {
 }
 
 async function carregarEmprestimos() {
-    try {
-        const response = await fetch('/api/admin/clientes');
-        if (!response.ok) throw new Error('Erro ao carregar empréstimos');
-        
-        clientes = await response.json();
-        exibirEmprestimos();
-    } catch (error) {
-        console.error('❌ Erro ao carregar empréstimos:', error);
-        alert('Erro ao carregar empréstimos: ' + error.message);
+  try {
+    console.log('🔄 Carregando empréstimos...');
+    const response = await fetch('/api/admin/emprestimos');
+    
+    console.log('📊 Status da resposta:', response.status);
+    console.log('🔗 URL:', response.url);
+    
+    if (!response.ok) {
+      throw new Error(`Erro HTTP: ${response.status} ${response.statusText}`);
     }
+    
+    const contentType = response.headers.get('content-type');
+    console.log('📄 Content-Type:', contentType);
+    
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await response.text();
+      console.error('❌ Resposta não é JSON:', text.substring(0, 200));
+      throw new Error('Resposta do servidor não é JSON');
+    }
+    
+    const emprestimos = await response.json();
+    console.log('✅ Empréstimos carregados:', emprestimos);
+    
+    exibirEmprestimos(emprestimos);
+  } catch (error) {
+    console.error('❌ Erro ao carregar empréstimos:', error);
+    alert('Erro ao carregar empréstimos: ' + error.message);
+  }
 }
 
 async function carregarPagamentos() {

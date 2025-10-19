@@ -393,11 +393,15 @@ function calculateInterestAndUpdateStatus(client) {
 app.get('/api/admin/emprestimos', async (req, res) => {
   let client;
   try {
+    console.log('📦 Buscando lista de empréstimos...');
+    
     if (!isDatabaseConnected) {
+      console.log('❌ Banco desconectado');
       return res.status(503).json({ error: 'Banco de dados offline' });
     }
 
     client = await pool.connect();
+    console.log('✅ Cliente conectado, executando query...');
     
     const result = await client.query(`
       SELECT 
@@ -410,6 +414,8 @@ app.get('/api/admin/emprestimos', async (req, res) => {
       JOIN clientes c ON e.cliente_id = c.id
       ORDER BY e.created_at DESC
     `);
+
+    console.log(`✅ Encontrados ${result.rows.length} empréstimos`);
 
     const emprestimos = result.rows.map(emp => ({
       id: emp.id,
@@ -429,17 +435,22 @@ app.get('/api/admin/emprestimos', async (req, res) => {
     res.json(emprestimos);
   } catch (error) {
     console.error('❌ Erro ao listar empréstimos:', error.message);
-    res.status(500).json({ error: 'Erro interno do servidor' });
+    res.status(500).json({ error: 'Erro interno do servidor: ' + error.message });
   } finally {
-    if (client) client.release();
+    if (client) {
+      client.release();
+      console.log('🔓 Cliente liberado');
+    }
   }
 });
 
-// ✅ ROTA PARA CRIAR/ATUALIZAR EMPRÉSTIMO
+// ✅ ROTA PARA CRIAR NOVO EMPRÉSTIMO
 app.post('/api/admin/emprestimos', async (req, res) => {
   let client;
   try {
     const { clienteCpf, valorTotal, parcelas, dataContratacao, boletos } = req.body;
+    
+    console.log('💾 Salvando novo empréstimo:', { clienteCpf, valorTotal, parcelas });
     
     if (!isDatabaseConnected) {
       return res.status(503).json({ error: 'Banco de dados offline' });
@@ -467,28 +478,24 @@ app.post('/api/admin/emprestimos', async (req, res) => {
     `, [clienteId, valorTotal, parcelas, dataContratacao]);
 
     const emprestimo = emprestimoResult.rows[0];
+    console.log('✅ Empréstimo criado com ID:', emprestimo.id);
 
-    // Criar parcelas automaticamente se não foram fornecidas
-    if (!boletos || boletos.length === 0) {
-      await criarParcelasAutomaticamente(client, emprestimo.id, valorTotal, parcelas, dataContratacao);
-    } else {
-      // Criar parcelas fornecidas
-      for (const boleto of boletos) {
-        await client.query(`
-          INSERT INTO parcelas (emprestimo_id, numero_parcela, valor, vencimento, status)
-          VALUES ($1, $2, $3, TO_DATE($4, 'DD-MM-YYYY'), $5)
-        `, [emprestimo.id, boleto.parcela, boleto.valor, boleto.vencimento, boleto.status || 'Pendente']);
-      }
-    }
+    // Criar parcelas automaticamente
+    await criarParcelasAutomaticamente(client, emprestimo.id, valorTotal, parcelas, dataContratacao);
 
     res.json({ 
       success: true, 
       message: 'Empréstimo criado com sucesso',
-      emprestimo: emprestimo
+      emprestimo: {
+        id: emprestimo.id,
+        valorTotal: parseFloat(emprestimo.valor_total),
+        parcelas: emprestimo.parcelas,
+        dataContratacao: emprestimo.data_contratacao
+      }
     });
   } catch (error) {
     console.error('❌ Erro ao salvar empréstimo:', error.message);
-    res.status(500).json({ error: 'Erro interno do servidor' });
+    res.status(500).json({ error: 'Erro interno do servidor: ' + error.message });
   } finally {
     if (client) client.release();
   }
@@ -499,6 +506,7 @@ app.get('/api/admin/emprestimos/:id', async (req, res) => {
   let client;
   try {
     const { id } = req.params;
+    console.log('🔍 Buscando empréstimo ID:', id);
     
     if (!isDatabaseConnected) {
       return res.status(503).json({ error: 'Banco de dados offline' });
@@ -549,7 +557,7 @@ app.get('/api/admin/emprestimos/:id', async (req, res) => {
     res.json(response);
   } catch (error) {
     console.error('❌ Erro ao buscar empréstimo:', error.message);
-    res.status(500).json({ error: 'Erro interno do servidor' });
+    res.status(500).json({ error: 'Erro interno do servidor: ' + error.message });
   } finally {
     if (client) client.release();
   }
@@ -560,6 +568,7 @@ app.delete('/api/admin/emprestimos/:id', async (req, res) => {
   let client;
   try {
     const { id } = req.params;
+    console.log('🗑️ Excluindo empréstimo ID:', id);
     
     if (!isDatabaseConnected) {
       return res.status(503).json({ error: 'Banco de dados offline' });
@@ -573,13 +582,15 @@ app.delete('/api/admin/emprestimos/:id', async (req, res) => {
     // Depois excluir empréstimo
     await client.query('DELETE FROM emprestimos WHERE id = $1', [id]);
 
+    console.log('✅ Empréstimo excluído com sucesso');
+
     res.json({ 
       success: true, 
       message: 'Empréstimo excluído com sucesso'
     });
   } catch (error) {
     console.error('❌ Erro ao excluir empréstimo:', error.message);
-    res.status(500).json({ error: 'Erro interno do servidor' });
+    res.status(500).json({ error: 'Erro interno do servidor: ' + error.message });
   } finally {
     if (client) client.release();
   }
@@ -590,17 +601,22 @@ async function criarParcelasAutomaticamente(client, emprestimoId, valorTotal, nu
   const valorParcela = valorTotal / numeroParcelas;
   const dataBase = new Date(dataContratacao || new Date());
   
+  console.log(`📅 Criando ${numeroParcelas} parcelas para empréstimo ${emprestimoId}`);
+  
   for (let i = 1; i <= numeroParcelas; i++) {
     const dataVencimento = new Date(dataBase);
     dataVencimento.setMonth(dataVencimento.getMonth() + i);
     
-    const vencimentoFormatado = dataVencimento.toISOString().split('T')[0].split('-').reverse().join('-');
+    // Formatar data como YYYY-MM-DD para o PostgreSQL
+    const vencimentoFormatado = dataVencimento.toISOString().split('T')[0];
     
     await client.query(`
       INSERT INTO parcelas (emprestimo_id, numero_parcela, valor, vencimento, status)
-      VALUES ($1, $2, $3, TO_DATE($4, 'YYYY-MM-DD'), 'Pendente')
-    `, [emprestimoId, i, valorParcela.toFixed(2), vencimentoFormatado]);
+      VALUES ($1, $2, $3, $4, 'Pendente')
+    `, [emprestimoId, i, parseFloat(valorParcela.toFixed(2)), vencimentoFormatado]);
   }
+  
+  console.log('✅ Parcelas criadas com sucesso');
 }
 
 // ✅ INICIAR SERVIDOR
