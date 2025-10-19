@@ -389,6 +389,220 @@ function calculateInterestAndUpdateStatus(client) {
   return client;
 }
 
+// ✅ ROTA PARA BUSCAR TODOS OS EMPRÉSTIMOS
+app.get('/api/admin/emprestimos', async (req, res) => {
+  let client;
+  try {
+    if (!isDatabaseConnected) {
+      return res.status(503).json({ error: 'Banco de dados offline' });
+    }
+
+    client = await pool.connect();
+    
+    const result = await client.query(`
+      SELECT 
+        e.*,
+        c.nome as cliente_nome,
+        c.cpf as cliente_cpf,
+        (SELECT COUNT(*) FROM parcelas p WHERE p.emprestimo_id = e.id AND p.status = 'Pago') as parcelas_pagas,
+        (SELECT COUNT(*) FROM parcelas p WHERE p.emprestimo_id = e.id AND p.status = 'Atrasado') as parcelas_atrasadas
+      FROM emprestimos e
+      JOIN clientes c ON e.cliente_id = c.id
+      ORDER BY e.created_at DESC
+    `);
+
+    const emprestimos = result.rows.map(emp => ({
+      id: emp.id,
+      cliente: {
+        nome: emp.cliente_nome,
+        cpf: emp.cliente_cpf
+      },
+      valorTotal: parseFloat(emp.valor_total),
+      parcelas: emp.parcelas,
+      dataContratacao: emp.data_contratacao,
+      parcelasPagas: parseInt(emp.parcelas_pagas),
+      parcelasAtrasadas: parseInt(emp.parcelas_atrasadas),
+      status: emp.parcelas_atrasadas > 0 ? 'Atrasado' : 
+              emp.parcelas_pagas === emp.parcelas ? 'Pago' : 'Em andamento'
+    }));
+
+    res.json(emprestimos);
+  } catch (error) {
+    console.error('❌ Erro ao listar empréstimos:', error.message);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+// ✅ ROTA PARA CRIAR/ATUALIZAR EMPRÉSTIMO
+app.post('/api/admin/emprestimos', async (req, res) => {
+  let client;
+  try {
+    const { clienteCpf, valorTotal, parcelas, dataContratacao, boletos } = req.body;
+    
+    if (!isDatabaseConnected) {
+      return res.status(503).json({ error: 'Banco de dados offline' });
+    }
+
+    client = await pool.connect();
+
+    // Buscar ID do cliente
+    const clienteResult = await client.query(
+      'SELECT id FROM clientes WHERE cpf = $1',
+      [clienteCpf]
+    );
+
+    if (clienteResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Cliente não encontrado' });
+    }
+
+    const clienteId = clienteResult.rows[0].id;
+
+    // Inserir empréstimo
+    const emprestimoResult = await client.query(`
+      INSERT INTO emprestimos (cliente_id, valor_total, parcelas, data_contratacao)
+      VALUES ($1, $2, $3, $4)
+      RETURNING *
+    `, [clienteId, valorTotal, parcelas, dataContratacao]);
+
+    const emprestimo = emprestimoResult.rows[0];
+
+    // Criar parcelas automaticamente se não foram fornecidas
+    if (!boletos || boletos.length === 0) {
+      await criarParcelasAutomaticamente(client, emprestimo.id, valorTotal, parcelas, dataContratacao);
+    } else {
+      // Criar parcelas fornecidas
+      for (const boleto of boletos) {
+        await client.query(`
+          INSERT INTO parcelas (emprestimo_id, numero_parcela, valor, vencimento, status)
+          VALUES ($1, $2, $3, TO_DATE($4, 'DD-MM-YYYY'), $5)
+        `, [emprestimo.id, boleto.parcela, boleto.valor, boleto.vencimento, boleto.status || 'Pendente']);
+      }
+    }
+
+    res.json({ 
+      success: true, 
+      message: 'Empréstimo criado com sucesso',
+      emprestimo: emprestimo
+    });
+  } catch (error) {
+    console.error('❌ Erro ao salvar empréstimo:', error.message);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+// ✅ ROTA PARA BUSCAR DETALHES DE UM EMPRÉSTIMO
+app.get('/api/admin/emprestimos/:id', async (req, res) => {
+  let client;
+  try {
+    const { id } = req.params;
+    
+    if (!isDatabaseConnected) {
+      return res.status(503).json({ error: 'Banco de dados offline' });
+    }
+
+    client = await pool.connect();
+    
+    const emprestimoResult = await client.query(`
+      SELECT e.*, c.nome as cliente_nome, c.cpf as cliente_cpf
+      FROM emprestimos e
+      JOIN clientes c ON e.cliente_id = c.id
+      WHERE e.id = $1
+    `, [id]);
+
+    if (emprestimoResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Empréstimo não encontrado' });
+    }
+
+    const emprestimo = emprestimoResult.rows[0];
+
+    // Buscar parcelas
+    const parcelasResult = await client.query(`
+      SELECT p.*, TO_CHAR(p.vencimento, 'DD-MM-YYYY') as vencimento_formatado
+      FROM parcelas p
+      WHERE p.emprestimo_id = $1
+      ORDER BY p.numero_parcela
+    `, [id]);
+
+    const boletos = parcelasResult.rows.map(p => ({
+      id: p.id,
+      parcela: p.numero_parcela,
+      valor: parseFloat(p.valor),
+      vencimento: p.vencimento_formatado,
+      status: p.status,
+      dataPagamento: p.data_pagamento
+    }));
+
+    const response = {
+      id: emprestimo.id,
+      clienteCpf: emprestimo.cliente_cpf,
+      clienteNome: emprestimo.cliente_nome,
+      valorTotal: parseFloat(emprestimo.valor_total),
+      parcelas: emprestimo.parcelas,
+      dataContratacao: emprestimo.data_contratacao,
+      boletos: boletos
+    };
+
+    res.json(response);
+  } catch (error) {
+    console.error('❌ Erro ao buscar empréstimo:', error.message);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+// ✅ ROTA PARA EXCLUIR EMPRÉSTIMO
+app.delete('/api/admin/emprestimos/:id', async (req, res) => {
+  let client;
+  try {
+    const { id } = req.params;
+    
+    if (!isDatabaseConnected) {
+      return res.status(503).json({ error: 'Banco de dados offline' });
+    }
+
+    client = await pool.connect();
+
+    // Primeiro excluir parcelas
+    await client.query('DELETE FROM parcelas WHERE emprestimo_id = $1', [id]);
+    
+    // Depois excluir empréstimo
+    await client.query('DELETE FROM emprestimos WHERE id = $1', [id]);
+
+    res.json({ 
+      success: true, 
+      message: 'Empréstimo excluído com sucesso'
+    });
+  } catch (error) {
+    console.error('❌ Erro ao excluir empréstimo:', error.message);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+// ✅ FUNÇÃO AUXILIAR PARA CRIAR PARCELAS AUTOMATICAMENTE
+async function criarParcelasAutomaticamente(client, emprestimoId, valorTotal, numeroParcelas, dataContratacao) {
+  const valorParcela = valorTotal / numeroParcelas;
+  const dataBase = new Date(dataContratacao || new Date());
+  
+  for (let i = 1; i <= numeroParcelas; i++) {
+    const dataVencimento = new Date(dataBase);
+    dataVencimento.setMonth(dataVencimento.getMonth() + i);
+    
+    const vencimentoFormatado = dataVencimento.toISOString().split('T')[0].split('-').reverse().join('-');
+    
+    await client.query(`
+      INSERT INTO parcelas (emprestimo_id, numero_parcela, valor, vencimento, status)
+      VALUES ($1, $2, $3, TO_DATE($4, 'YYYY-MM-DD'), 'Pendente')
+    `, [emprestimoId, i, valorParcela.toFixed(2), vencimentoFormatado]);
+  }
+}
+
 // ✅ INICIAR SERVIDOR
 app.listen(PORT, async () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);

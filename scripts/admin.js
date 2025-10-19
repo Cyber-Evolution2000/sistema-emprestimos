@@ -272,21 +272,288 @@ async function atualizarDashboard() {
     }
 }
 
-// ✅ INICIALIZAÇÃO
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('✅ Admin inicializado');
-    atualizarDashboard();
-});
-
-// Funções para empréstimos (para implementar depois)
-function abrirModalEmprestimo() {
-    alert('Funcionalidade de empréstimos será implementada em breve.');
+// ✅ FUNÇÕES DE EMPRÉSTIMOS
+async function carregarEmprestimos() {
+  try {
+    const response = await fetch('/api/admin/emprestimos');
+    if (!response.ok) throw new Error('Erro ao carregar empréstimos');
+    
+    const emprestimos = await response.json();
+    exibirEmprestimos(emprestimos);
+  } catch (error) {
+    console.error('❌ Erro ao carregar empréstimos:', error);
+    alert('Erro ao carregar empréstimos: ' + error.message);
+  }
 }
 
-function salvarEmprestimo() {
-    alert('Funcionalidade de empréstimos será implementada em breve.');
+function exibirEmprestimos(emprestimos) {
+  const tbody = document.getElementById('tabelaEmprestimos');
+  tbody.innerHTML = '';
+
+  if (emprestimos.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="7" class="text-center text-muted py-4">
+          Nenhum empréstimo cadastrado
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  emprestimos.forEach(emprestimo => {
+    const statusClass = emprestimo.status === 'Pago' ? 'success' : 
+                       emprestimo.status === 'Atrasado' ? 'danger' : 'warning';
+    
+    const progresso = Math.round((emprestimo.parcelasPagas / emprestimo.parcelas) * 100);
+    
+    const row = `
+      <tr>
+        <td>
+          <strong>${emprestimo.cliente.nome}</strong><br>
+          <small class="text-muted">${emprestimo.cliente.cpf}</small>
+        </td>
+        <td>R$ ${emprestimo.valorTotal.toFixed(2)}</td>
+        <td>
+          ${emprestimo.parcelas} parcelas<br>
+          <small class="text-muted">${emprestimo.parcelasPagas} pagas</small>
+        </td>
+        <td>${formatarData(emprestimo.dataContratacao)}</td>
+        <td>
+          <span class="badge bg-${statusClass}">${emprestimo.status}</span>
+          ${emprestimo.parcelasAtrasadas > 0 ? 
+            `<br><small class="text-danger">${emprestimo.parcelasAtrasadas} atrasadas</small>` : ''}
+        </td>
+        <td>
+          <div class="progress" style="height: 6px; width: 80px;">
+            <div class="progress-bar bg-${statusClass}" style="width: ${progresso}%"></div>
+          </div>
+          <small>${progresso}%</small>
+        </td>
+        <td>
+          <button class="btn btn-sm btn-info" onclick="verDetalhesEmprestimo(${emprestimo.id})" title="Detalhes">
+            <i class="fas fa-eye"></i>
+          </button>
+          <button class="btn btn-sm btn-warning" onclick="editarEmprestimo(${emprestimo.id})" title="Editar">
+            <i class="fas fa-edit"></i>
+          </button>
+          <button class="btn btn-sm btn-danger" onclick="excluirEmprestimo(${emprestimo.id})" title="Excluir">
+            <i class="fas fa-trash"></i>
+          </button>
+        </td>
+      </tr>
+    `;
+    tbody.innerHTML += row;
+  });
 }
 
-function marcarComoPago(cpf, parcela) {
-    alert(`Funcionalidade de marcar como pago será implementada para CPF: ${cpf}, Parcela: ${parcela}`);
+async function abrirModalEmprestimo(emprestimoId = null) {
+  try {
+    // Carregar lista de clientes para o select
+    const clientesResponse = await fetch('/api/admin/clientes');
+    if (!clientesResponse.ok) throw new Error('Erro ao carregar clientes');
+    
+    const clientes = await clientesResponse.json();
+    
+    const selectCliente = document.getElementById('clienteSelect');
+    selectCliente.innerHTML = '<option value="">Selecione um cliente</option>';
+    
+    clientes.forEach(cliente => {
+      const option = document.createElement('option');
+      option.value = cliente.cpf;
+      option.textContent = `${cliente.nome} - ${cliente.cpf}`;
+      selectCliente.appendChild(option);
+    });
+
+    const modal = new bootstrap.Modal(document.getElementById('modalEmprestimo'));
+    const form = document.getElementById('formEmprestimo');
+    
+    form.reset();
+    document.getElementById('emprestimoId').value = '';
+    
+    if (emprestimoId) {
+      // Modo edição
+      document.getElementById('modalEmprestimoTitle').textContent = 'Editar Empréstimo';
+      
+      const emprestimoResponse = await fetch(`/api/admin/emprestimos/${emprestimoId}`);
+      if (!emprestimoResponse.ok) throw new Error('Erro ao carregar empréstimo');
+      
+      const emprestimo = await emprestimoResponse.json();
+      
+      document.getElementById('emprestimoId').value = emprestimo.id;
+      document.getElementById('clienteSelect').value = emprestimo.clienteCpf;
+      document.getElementById('valorTotal').value = emprestimo.valorTotal;
+      document.getElementById('parcelas').value = emprestimo.parcelas;
+      document.getElementById('dataContratacao').value = emprestimo.dataContratacao;
+      
+    } else {
+      // Modo novo
+      document.getElementById('modalEmprestimoTitle').textContent = 'Novo Empréstimo';
+      document.getElementById('dataContratacao').value = new Date().toISOString().split('T')[0];
+    }
+    
+    modal.show();
+  } catch (error) {
+    console.error('❌ Erro ao abrir modal de empréstimo:', error);
+    alert('Erro: ' + error.message);
+  }
+}
+
+async function salvarEmprestimo() {
+  try {
+    const emprestimoId = document.getElementById('emprestimoId').value;
+    const clienteCpf = document.getElementById('clienteSelect').value;
+    const valorTotal = parseFloat(document.getElementById('valorTotal').value);
+    const parcelas = parseInt(document.getElementById('parcelas').value);
+    const dataContratacao = document.getElementById('dataContratacao').value;
+
+    if (!clienteCpf || !valorTotal || !parcelas) {
+      alert('Por favor, preencha todos os campos obrigatórios.');
+      return;
+    }
+
+    const emprestimoData = {
+      clienteCpf: clienteCpf,
+      valorTotal: valorTotal,
+      parcelas: parcelas,
+      dataContratacao: dataContratacao
+    };
+
+    const url = emprestimoId ? `/api/admin/emprestimos/${emprestimoId}` : '/api/admin/emprestimos';
+    const method = emprestimoId ? 'PUT' : 'POST';
+
+    const response = await fetch(url, {
+      method: method,
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(emprestimoData)
+    });
+
+    if (!response.ok) throw new Error('Erro ao salvar empréstimo');
+
+    const result = await response.json();
+    
+    bootstrap.Modal.getInstance(document.getElementById('modalEmprestimo')).hide();
+    alert('✅ ' + result.message);
+    carregarEmprestimos();
+    
+  } catch (error) {
+    console.error('❌ Erro ao salvar empréstimo:', error);
+    alert('Erro ao salvar empréstimo: ' + error.message);
+  }
+}
+
+async function excluirEmprestimo(id) {
+  if (!confirm('Tem certeza que deseja excluir este empréstimo? Todas as parcelas também serão excluídas.')) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/admin/emprestimos/${id}`, {
+      method: 'DELETE'
+    });
+
+    if (!response.ok) throw new Error('Erro ao excluir empréstimo');
+
+    const result = await response.json();
+    alert('✅ ' + result.message);
+    carregarEmprestimos();
+    
+  } catch (error) {
+    console.error('❌ Erro ao excluir empréstimo:', error);
+    alert('Erro ao excluir empréstimo: ' + error.message);
+  }
+}
+
+async function verDetalhesEmprestimo(id) {
+  try {
+    const response = await fetch(`/api/admin/emprestimos/${id}`);
+    if (!response.ok) throw new Error('Erro ao carregar detalhes');
+    
+    const emprestimo = await response.json();
+    
+    let detalhesHTML = `
+      <h5>Detalhes do Empréstimo</h5>
+      <p><strong>Cliente:</strong> ${emprestimo.clienteNome} (${emprestimo.clienteCpf})</p>
+      <p><strong>Valor Total:</strong> R$ ${emprestimo.valorTotal.toFixed(2)}</p>
+      <p><strong>Parcelas:</strong> ${emprestimo.parcelas}</p>
+      <p><strong>Data de Contratação:</strong> ${formatarData(emprestimo.dataContratacao)}</p>
+      
+      <h6 class="mt-4">Parcelas</h6>
+      <div class="table-responsive">
+        <table class="table table-sm">
+          <thead>
+            <tr>
+              <th>Parcela</th>
+              <th>Valor</th>
+              <th>Vencimento</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+    
+    emprestimo.boletos.forEach(boleto => {
+      const statusClass = boleto.status === 'Pago' ? 'success' : 
+                         boleto.status === 'Atrasado' ? 'danger' : 'warning';
+      
+      detalhesHTML += `
+        <tr>
+          <td>${boleto.parcela}</td>
+          <td>R$ ${boleto.valor.toFixed(2)}</td>
+          <td>${boleto.vencimento}</td>
+          <td><span class="badge bg-${statusClass}">${boleto.status}</span></td>
+        </tr>
+      `;
+    });
+    
+    detalhesHTML += `
+          </tbody>
+        </table>
+      </div>
+    `;
+    
+    // Criar modal de detalhes
+    const modalHTML = `
+      <div class="modal fade" id="detalhesEmprestimoModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Detalhes do Empréstimo</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+              ${detalhesHTML}
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    // Adicionar modal ao DOM se não existir
+    if (!document.getElementById('detalhesEmprestimoModal')) {
+      document.body.insertAdjacentHTML('beforeend', modalHTML);
+    } else {
+      document.getElementById('detalhesEmprestimoModal').remove();
+      document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+    
+    const modal = new bootstrap.Modal(document.getElementById('detalhesEmprestimoModal'));
+    modal.show();
+    
+  } catch (error) {
+    console.error('❌ Erro ao carregar detalhes:', error);
+    alert('Erro: ' + error.message);
+  }
+}
+
+// ✅ FUNÇÃO AUXILIAR PARA FORMATAR DATA
+function formatarData(dataString) {
+  if (!dataString) return 'N/A';
+  const data = new Date(dataString);
+  return data.toLocaleDateString('pt-BR');
 }
