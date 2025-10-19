@@ -1,6 +1,12 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+
+    <!-- ✅ FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+<script src="scripts/firebase-config.js"></script>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Consulta de Empréstimos - Sistema PIX</title>
@@ -354,14 +360,29 @@
             }
         }
 
-        // Buscar cliente por CPF - AGORA 100% ATUALIZADO
-        function buscarClientePorCPF(cpf) {
-            const clientes = carregarDadosClientes();
-            console.log('🔍 Buscando CPF:', cpf, 'em', clientes);
-            const cliente = clientes.find(cliente => cliente.cpf === cpf);
-            console.log('🔍 Cliente encontrado:', cliente);
-            return cliente;
+async function buscarClientePorCPF(cpf) {
+    try {
+        console.log('🔍 Buscando CPF no Firebase:', cpf);
+        
+        const snapshot = await db.collection('clientes')
+            .where('cpf', '==', cpf)
+            .get();
+        
+        if (snapshot.empty) {
+            console.log('❌ Cliente não encontrado no Firebase');
+            return null;
         }
+        
+        const doc = snapshot.docs[0];
+        const cliente = { id: doc.id, ...doc.data() };
+        console.log('✅ Cliente encontrado:', cliente);
+        return cliente;
+        
+    } catch (error) {
+        console.error('❌ Erro na busca Firebase:', error);
+        return null;
+    }
+}
 
         // Calcular valor atualizado com juros
         function calcularValorAtualizado(parcela) {

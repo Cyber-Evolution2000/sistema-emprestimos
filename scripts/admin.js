@@ -488,25 +488,28 @@ class AdminSystem {
 
     async salvarDados() {
     try {
-        const response = await fetch('/api/admin/clientes', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(this.clientes)
-        });
-
-        if (response.ok) {
-            console.log('Dados salvos com sucesso no servidor!');
-            return true;
-        } else {
-            throw new Error('Erro ao salvar no servidor');
+        console.log('💾 Salvando dados no Firebase...', this.clientes);
+        
+        // Salva cada cliente no Firebase
+        for (const cliente of this.clientes) {
+            if (cliente.id) {
+                // Atualiza cliente existente
+                await db.collection('clientes').doc(cliente.id).update(cliente);
+                console.log('✅ Cliente atualizado:', cliente.nome);
+            } else {
+                // Adiciona novo cliente
+                const docRef = await db.collection('clientes').add(cliente);
+                cliente.id = docRef.id;
+                console.log('✅ Novo cliente adicionado:', cliente.nome);
+            }
         }
+        
+        console.log('✅ Todos os dados salvos no Firebase com sucesso!');
+        return true;
+        
     } catch (error) {
-        console.error('Erro ao salvar no servidor, usando localStorage:', error);
-        // ✅ CORREÇÃO: Salvar no localStorage que a consulta procura
-        localStorage.setItem('clientesData', JSON.stringify(this.clientes));
-        console.log('💾 Dados salvos no localStorage:', this.clientes);
+        console.error('❌ Erro ao salvar no Firebase:', error);
+        alert('Erro ao salvar dados: ' + error.message);
         return false;
     }
 }
