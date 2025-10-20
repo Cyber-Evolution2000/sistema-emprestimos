@@ -404,3 +404,57 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('🔒 Sistema admin inicializado - BANCO DE DADOS APENAS');
     atualizarDashboard();
 });
+
+// ✅ DEBUG DO MODAL
+function debugModal() {
+    console.log('🔍 Debug do Modal:');
+    console.log('- Modal element:', document.getElementById('modalEmprestimo'));
+    console.log('- Bootstrap:', typeof bootstrap);
+    console.log('- Modal class:', bootstrap?.Modal);
+    
+    const modalElement = document.getElementById('modalEmprestimo');
+    if (modalElement) {
+        console.log('- Modal encontrado');
+        const modal = new bootstrap.Modal(modalElement);
+        console.log('- Modal instance:', modal);
+        return modal;
+    } else {
+        console.error('❌ Modal não encontrado!');
+        return null;
+    }
+}
+
+// ✅ VERSÃO CORRIGIDA - ABRIR MODAL DE EMPRÉSTIMO
+function abrirModalEmprestimo() {
+    console.log('🔄 Abrindo modal de empréstimo...');
+    
+    const modalElement = document.getElementById('modalEmprestimo');
+    if (!modalElement) {
+        console.error('❌ Modal não encontrado! Verifique o HTML.');
+        alert('Erro: Modal não encontrado. Recarregue a página.');
+        return;
+    }
+    
+    try {
+        const modal = new bootstrap.Modal(modalElement);
+        
+        // Resetar formulário
+        const form = document.getElementById('formEmprestimo');
+        if (form) form.reset();
+        
+        // Atualizar título
+        const title = document.getElementById('modalEmprestimoTitle');
+        if (title) title.textContent = 'Novo Empréstimo';
+        
+        // Carregar clientes
+        carregarClientesParaSelect();
+        
+        // Mostrar modal
+        modal.show();
+        console.log('✅ Modal aberto com sucesso!');
+        
+    } catch (error) {
+        console.error('💥 Erro ao abrir modal:', error);
+        alert('Erro ao abrir formulário: ' + error.message);
+    }
+}
