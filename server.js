@@ -245,3 +245,50 @@ app.get('/api/admin/pagamentos', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+
+// ✅ DEBUG DETALHADO DA TABELA
+app.get('/api/debug-clientes', async (req, res) => {
+    try {
+        if (!isDatabaseConnected) {
+            return res.json({ error: 'Banco offline', connected: false });
+        }
+        
+        const client = await pool.connect();
+        
+        // 1. Verificar se a tabela existe
+        const tableCheck = await client.query(`
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name = 'clientes'
+            );
+        `);
+        
+        const tabelaExiste = tableCheck.rows[0].exists;
+        
+        if (!tabelaExiste) {
+            client.release();
+            return res.json({ 
+                error: 'Tabela clientes não existe',
+                tabelaExiste: false,
+                precisaCriarTabela: true
+            });
+        }
+        
+        // 2. Tentar buscar dados
+        const result = await client.query('SELECT * FROM clientes');
+        client.release();
+        
+        res.json({
+            tabelaExiste: true,
+            totalClientes: result.rows.length,
+            clientes: result.rows
+        });
+        
+    } catch (error) {
+        res.json({ 
+            error: error.message,
+            detalhes: 'Erro ao acessar tabela clientes'
+        });
+    }
+});
