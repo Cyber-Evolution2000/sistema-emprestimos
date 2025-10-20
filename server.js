@@ -164,15 +164,44 @@ app.post('/api/admin/clientes', async (req, res) => {
     }
 });
 
-// ✅ ROTA PARA EMPRÉSTIMOS
+// ✅ ROTA GET PARA EMPRÉSTIMOS (COM DADOS REAIS)
 app.get('/api/admin/emprestimos', async (req, res) => {
     try {
         if (!isDatabaseConnected) {
             return res.status(503).json({ error: 'Banco offline' });
         }
         
-        // Por enquanto retorna vazio
-        res.json([]);
+        const client = await pool.connect();
+        
+        // Verificar se tabela existe
+        const tableCheck = await client.query(`
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name = 'emprestimos'
+            );
+        `);
+        
+        if (!tableCheck.rows[0].exists) {
+            client.release();
+            return res.json([]);
+        }
+        
+        // Buscar empréstimos com dados do cliente
+        const result = await client.query(`
+            SELECT e.*, c.nome as cliente_nome, c.telefone as cliente_telefone,
+                   COUNT(p.id) as total_parcelas,
+                   SUM(CASE WHEN p.status = 'Pago' THEN 1 ELSE 0 END) as parcelas_pagas
+            FROM emprestimos e
+            LEFT JOIN clientes c ON e.cliente_cpf = c.cpf
+            LEFT JOIN parcelas p ON e.id = p.emprestimo_id
+            GROUP BY e.id, c.nome, c.telefone
+            ORDER BY e.data_contratacao DESC
+        `);
+        
+        client.release();
+        
+        res.json(result.rows);
         
     } catch (error) {
         console.error('Erro ao buscar empréstimos:', error);
@@ -360,5 +389,99 @@ app.post('/api/admin/adicionar-dados-exemplo', async (req, res) => {
     } catch (error) {
         console.error('Erro ao adicionar dados exemplo:', error);
         res.status(500).json({ error: error.message });
+    }
+});
+
+// ✅ ROTA POST PARA CRIAR EMPRÉSTIMOS
+app.post('/api/admin/emprestimos', async (req, res) => {
+    try {
+        if (!isDatabaseConnected) {
+            return res.status(503).json({ error: 'Banco offline' });
+        }
+        
+        const { cliente_cpf, valor_total, parcelas, taxa_juros, observacoes } = req.body;
+        
+        if (!cliente_cpf || !valor_total || !parcelas) {
+            return res.status(400).json({ error: 'CPF do cliente, valor total e parcelas são obrigatórios' });
+        }
+        
+        const client = await pool.connect();
+        
+        // Verificar se tabela existe
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS emprestimos (
+                id SERIAL PRIMARY KEY,
+                cliente_cpf VARCHAR(14) REFERENCES clientes(cpf),
+                valor_total DECIMAL(10,2) NOT NULL,
+                parcelas INTEGER NOT NULL,
+                taxa_juros DECIMAL(5,2) DEFAULT 0,
+                observacoes TEXT,
+                data_contratacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                status VARCHAR(20) DEFAULT 'Ativo'
+            );
+        `);
+        
+        // Inserir empréstimo
+        const result = await client.query(
+            `INSERT INTO emprestimos (cliente_cpf, valor_total, parcelas, taxa_juros, observacoes) 
+             VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+            [cliente_cpf, valor_total, parcelas, taxa_juros || 0, observacoes || '']
+        );
+        
+        // Criar parcelas automaticamente
+        const emprestimoId = result.rows[0].id;
+        const valorParcela = valor_total / parcelas;
+        
+        // Criar tabela de parcelas se não existir
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS parcelas (
+                id SERIAL PRIMARY KEY,
+                emprestimo_id INTEGER REFERENCES emprestimos(id),
+                numero_parcela INTEGER NOT NULL,
+                valor DECIMAL(10,2) NOT NULL,
+                vencimento DATE NOT NULL,
+                status VARCHAR(20) DEFAULT 'Pendente',
+                data_pagamento DATE NULL
+            );
+        `);
+        
+        // Gerar datas de vencimento (dia 10 de cada mês)
+        const datasVencimento = [];
+        const hoje = new Date();
+        
+        for (let i = 1; i <= parcelas; i++) {
+            const dataVencimento = new Date(hoje);
+            dataVencimento.setMonth(hoje.getMonth() + i);
+            dataVencimento.setDate(10);
+            
+            datasVencimento.push(dataVencimento.toISOString().split('T')[0]);
+        }
+        
+        // Inserir parcelas
+        for (let i = 0; i < parcelas; i++) {
+            await client.query(
+                `INSERT INTO parcelas (emprestimo_id, numero_parcela, valor, vencimento) 
+                 VALUES ($1, $2, $3, $4)`,
+                [emprestimoId, i + 1, valorParcela, datasVencimento[i]]
+            );
+        }
+        
+        client.release();
+        
+        res.json({ 
+            success: true,
+            message: 'Empréstimo cadastrado com sucesso!',
+            emprestimo: result.rows[0],
+            parcelas_criadas: parcelas
+        });
+        
+    } catch (error) {
+        console.error('Erro ao salvar empréstimo:', error);
+        
+        if (error.code === '23503') { // Violação de chave estrangeira
+            res.status(400).json({ error: 'Cliente não encontrado' });
+        } else {
+            res.status(500).json({ error: error.message });
+        }
     }
 });
