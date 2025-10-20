@@ -267,7 +267,7 @@ app.listen(PORT, async () => {
 
 // ✅ ROTAS PARA O SITE PÚBLICO (INDEX.HTML)
 
-// Rota para buscar cliente por CPF (usada pelo index.html)
+// ✅ ROTA COMPLETA PARA BUSCAR CLIENTE + EMPRÉSTIMOS (usada pelo index.html)
 app.get('/api/clients/:cpf', async (req, res) => {
     try {
         if (!isDatabaseConnected) {
@@ -275,32 +275,97 @@ app.get('/api/clients/:cpf', async (req, res) => {
         }
         
         const { cpf } = req.params;
+        console.log(`🔍 Buscando cliente e empréstimos para CPF: ${cpf}`);
         
         const client = await pool.connect();
         
-        // Buscar cliente
-        const result = await client.query(
+        // 1. Buscar cliente
+        const clienteResult = await client.query(
             'SELECT * FROM clientes WHERE cpf = $1',
             [cpf]
         );
         
-        client.release();
-        
-        if (result.rows.length === 0) {
+        if (clienteResult.rows.length === 0) {
+            client.release();
             return res.status(404).json({ error: 'Cliente não encontrado' });
         }
         
-        const cliente = result.rows[0];
+        const cliente = clienteResult.rows[0];
         
-        // Por enquanto, retornar estrutura básica
-        // Você pode adicionar empréstimos depois
-        res.json({
+        // 2. Buscar empréstimos do cliente
+        const emprestimosResult = await client.query(`
+            SELECT e.*, 
+                   COUNT(p.id) as total_parcelas,
+                   SUM(CASE WHEN p.status = 'Pago' THEN 1 ELSE 0 END) as parcelas_pagas
+            FROM emprestimos e
+            LEFT JOIN parcelas p ON e.id = p.emprestimo_id
+            WHERE e.cliente_cpf = $1
+            GROUP BY e.id
+            ORDER BY e.data_contratacao DESC
+        `, [cpf]);
+        
+        // 3. Buscar parcelas de cada empréstimo
+        const emprestimosComParcelas = [];
+        
+        for (const emprestimo of emprestimosResult.rows) {
+            const parcelasResult = await client.query(`
+                SELECT * FROM parcelas 
+                WHERE emprestimo_id = $1 
+                ORDER BY numero_parcela
+            `, [emprestimo.id]);
+            
+            // Converter parcelas para o formato que o index.html espera
+            const boletos = parcelasResult.rows.map(parcela => {
+                // Calcular valor atualizado com juros se estiver atrasada
+                let valorAtualizado = parseFloat(parcela.valor);
+                let status = parcela.status;
+                
+                if (parcela.status === 'Pendente' && parcela.vencimento) {
+                    const vencimento = new Date(parcela.vencimento);
+                    const hoje = new Date();
+                    
+                    if (vencimento < hoje) {
+                        status = 'Atrasado';
+                        // Aplicar juros de 2% por mês de atraso
+                        const mesesAtraso = Math.floor((hoje - vencimento) / (30 * 24 * 60 * 60 * 1000));
+                        const juros = parseFloat(emprestimo.taxa_juros) || 2.5;
+                        valorAtualizado = valorAtualizado * Math.pow(1 + (juros / 100), mesesAtraso);
+                    }
+                }
+                
+                return {
+                    parcela: parcela.numero_parcela,
+                    valor: parseFloat(parcela.valor).toFixed(2),
+                    valorAtualizado: valorAtualizado.toFixed(2),
+                    vencimento: parcela.vencimento,
+                    status: status,
+                    dataPagamento: parcela.data_pagamento
+                };
+            });
+            
+            emprestimosComParcelas.push({
+                id: emprestimo.id,
+                valorTotal: parseFloat(emprestimo.valor_total).toFixed(2),
+                parcelas: emprestimo.parcelas,
+                dataContratacao: emprestimo.data_contratacao,
+                status: emprestimo.status,
+                boletos: boletos
+            });
+        }
+        
+        client.release();
+        
+        // 4. Montar resposta no formato que o index.html espera
+        const resposta = {
             ...cliente,
-            emprestimos: [] // Array vazio por enquanto
-        });
+            emprestimos: emprestimosComParcelas
+        };
+        
+        console.log(`✅ Cliente encontrado: ${cliente.nome}, Empréstimos: ${emprestimosComParcelas.length}`);
+        res.json(resposta);
         
     } catch (error) {
-        console.error('Erro ao buscar cliente:', error);
+        console.error('❌ Erro ao buscar cliente:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -483,5 +548,88 @@ app.post('/api/admin/emprestimos', async (req, res) => {
         } else {
             res.status(500).json({ error: error.message });
         }
+    }
+});
+
+// ✅ ADICIONE ESTA ROTA NO FINAL DO server.js
+// ROTA PARA O INDEX.HTML BUSCAR CLIENTE + EMPRÉSTIMOS
+app.get('/api/clients/:cpf', async (req, res) => {
+    try {
+        if (!isDatabaseConnected) {
+            return res.status(503).json({ error: 'Banco offline' });
+        }
+        
+        const { cpf } = req.params;
+        console.log(`🔍 Buscando cliente e empréstimos para CPF: ${cpf}`);
+        
+        const client = await pool.connect();
+        
+        // 1. Buscar cliente
+        const clienteResult = await client.query(
+            'SELECT * FROM clientes WHERE cpf = $1',
+            [cpf]
+        );
+        
+        if (clienteResult.rows.length === 0) {
+            client.release();
+            return res.status(404).json({ error: 'Cliente não encontrado' });
+        }
+        
+        const cliente = clienteResult.rows[0];
+        
+        // 2. Buscar empréstimos do cliente
+        const emprestimosResult = await client.query(`
+            SELECT e.* 
+            FROM emprestimos e
+            WHERE e.cliente_cpf = $1
+            ORDER BY e.data_contratacao DESC
+        `, [cpf]);
+        
+        // 3. Buscar parcelas de cada empréstimo
+        const emprestimosComParcelas = [];
+        
+        for (const emprestimo of emprestimosResult.rows) {
+            const parcelasResult = await client.query(`
+                SELECT * FROM parcelas 
+                WHERE emprestimo_id = $1 
+                ORDER BY numero_parcela
+            `, [emprestimo.id]);
+            
+            // Converter parcelas para o formato que o index.html espera
+            const boletos = parcelasResult.rows.map(parcela => {
+                return {
+                    parcela: parcela.numero_parcela,
+                    valor: parseFloat(parcela.valor).toFixed(2),
+                    valorAtualizado: parseFloat(parcela.valor).toFixed(2), // Por enquanto sem juros
+                    vencimento: parcela.vencimento,
+                    status: parcela.status,
+                    dataPagamento: parcela.data_pagamento
+                };
+            });
+            
+            emprestimosComParcelas.push({
+                id: emprestimo.id,
+                valorTotal: parseFloat(emprestimo.valor_total).toFixed(2),
+                parcelas: emprestimo.parcelas,
+                dataContratacao: emprestimo.data_contratacao,
+                status: emprestimo.status,
+                boletos: boletos
+            });
+        }
+        
+        client.release();
+        
+        // 4. Montar resposta
+        const resposta = {
+            ...cliente,
+            emprestimos: emprestimosComParcelas
+        };
+        
+        console.log(`✅ Cliente encontrado: ${cliente.nome}, Empréstimos: ${emprestimosComParcelas.length}`);
+        res.json(resposta);
+        
+    } catch (error) {
+        console.error('❌ Erro ao buscar cliente:', error);
+        res.status(500).json({ error: error.message });
     }
 });
