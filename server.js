@@ -235,3 +235,130 @@ app.listen(PORT, async () => {
     console.log(`👨‍💼 Admin: http://localhost:${PORT}/admin`);
     await conectarBanco();
 });
+
+// ✅ ROTAS PARA O SITE PÚBLICO (INDEX.HTML)
+
+// Rota para buscar cliente por CPF (usada pelo index.html)
+app.get('/api/clients/:cpf', async (req, res) => {
+    try {
+        if (!isDatabaseConnected) {
+            return res.status(503).json({ error: 'Banco offline' });
+        }
+        
+        const { cpf } = req.params;
+        
+        const client = await pool.connect();
+        
+        // Buscar cliente
+        const result = await client.query(
+            'SELECT * FROM clientes WHERE cpf = $1',
+            [cpf]
+        );
+        
+        client.release();
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Cliente não encontrado' });
+        }
+        
+        const cliente = result.rows[0];
+        
+        // Por enquanto, retornar estrutura básica
+        // Você pode adicionar empréstimos depois
+        res.json({
+            ...cliente,
+            emprestimos: [] // Array vazio por enquanto
+        });
+        
+    } catch (error) {
+        console.error('Erro ao buscar cliente:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Rota para gerar PIX (simulação - você pode implementar depois)
+app.post('/api/payments/pix', async (req, res) => {
+    try {
+        const { cpf, parcela } = req.body;
+        
+        // Simulação de dados PIX
+        const pixData = {
+            qrCode: 'https://via.placeholder.com/200x200/32BCAD/FFFFFF?text=QR+CODE+PIX',
+            pixCopiaECola: `00020126580014br.gov.bcb.pix0136123e4567-e12b-12d1-a456-4266141740005204000053039865406${Math.random()*1000}5802BR5925SISTEMA EMPRESTIMOS PIX6008BRASILIA62070503***6304${Math.random().toString(36).substr(2, 4)}`,
+            valor: 150.00,
+            expiracao: '2024-12-31T23:59:59'
+        };
+        
+        res.json(pixData);
+        
+    } catch (error) {
+        console.error('Erro ao gerar PIX:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Rota para adicionar alguns dados de exemplo (empréstimos)
+app.post('/api/admin/adicionar-dados-exemplo', async (req, res) => {
+    try {
+        if (!isDatabaseConnected) {
+            return res.status(503).json({ error: 'Banco offline' });
+        }
+        
+        const client = await pool.connect();
+        
+        // Adicionar empréstimos de exemplo para os clientes existentes
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS emprestimos (
+                id SERIAL PRIMARY KEY,
+                cliente_cpf VARCHAR(14) REFERENCES clientes(cpf),
+                valor_total DECIMAL(10,2) NOT NULL,
+                parcelas INTEGER NOT NULL,
+                data_contratacao DATE DEFAULT CURRENT_DATE,
+                status VARCHAR(20) DEFAULT 'Ativo'
+            );
+        `);
+        
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS parcelas (
+                id SERIAL PRIMARY KEY,
+                emprestimo_id INTEGER REFERENCES emprestimos(id),
+                numero_parcela INTEGER NOT NULL,
+                valor DECIMAL(10,2) NOT NULL,
+                vencimento DATE NOT NULL,
+                status VARCHAR(20) DEFAULT 'Pendente',
+                data_pagamento DATE NULL
+            );
+        `);
+        
+        // Adicionar empréstimos de exemplo
+        await client.query(`
+            INSERT INTO emprestimos (cliente_cpf, valor_total, parcelas) VALUES
+            ('123.456.789-00', 5000.00, 12),
+            ('987.654.321-00', 3000.00, 6)
+            ON CONFLICT DO NOTHING;
+        `);
+        
+        // Adicionar parcelas de exemplo
+        await client.query(`
+            INSERT INTO parcelas (emprestimo_id, numero_parcela, valor, vencimento, status) VALUES
+            (1, 1, 416.67, '2024-11-10', 'Pendente'),
+            (1, 2, 416.67, '2024-12-10', 'Pendente'),
+            (2, 1, 500.00, '2024-11-15', 'Pago'),
+            (2, 2, 500.00, '2024-12-15', 'Pendente')
+            ON CONFLICT DO NOTHING;
+        `);
+        
+        client.release();
+        
+        res.json({ 
+            success: true,
+            message: 'Dados de exemplo adicionados com sucesso!',
+            emprestimos_adicionados: 2,
+            parcelas_adicionadas: 4
+        });
+        
+    } catch (error) {
+        console.error('Erro ao adicionar dados exemplo:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
