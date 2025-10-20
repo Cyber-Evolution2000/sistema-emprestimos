@@ -151,7 +151,7 @@ async function salvarCliente() {
     }
 }
 
-// ✅ OUTRAS FUNÇÕES BÁSICAS
+// ✅ FUNÇÃO CORRIGIDA - CARREGAR EMPRÉSTIMOS
 async function carregarEmprestimos() {
     try {
         console.log('🔄 Buscando empréstimos do PostgreSQL...');
@@ -163,7 +163,7 @@ async function carregarEmprestimos() {
         }
         
         const emprestimos = await response.json();
-        console.log(`✅ Empréstimos carregados: ${emprestimos.length}`);
+        console.log(`✅ Empréstimos carregados: ${emprestimos.length}`, emprestimos);
         
         const tbody = document.getElementById('tabelaEmprestimos');
         tbody.innerHTML = '';
@@ -171,8 +171,10 @@ async function carregarEmprestimos() {
         if (emprestimos.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="6" class="text-center text-muted py-4">
-                        Nenhum empréstimo cadastrado
+                    <td colspan="7" class="text-center text-muted py-4">
+                        <i class="fas fa-hand-holding-usd"></i><br>
+                        Nenhum empréstimo cadastrado<br>
+                        <small>Use o botão "Novo Empréstimo" para começar</small>
                     </td>
                 </tr>
             `;
@@ -180,24 +182,58 @@ async function carregarEmprestimos() {
         }
 
         emprestimos.forEach(emprestimo => {
+            console.log('📊 Processando empréstimo:', emprestimo);
+            
+            // ✅ CORREÇÃO AQUI: Use os nomes corretos das colunas
+            const nomeCliente = emprestimo.cliente_nome || 'N/A';
+            const cpfCliente = emprestimo.cliente_cpf || 'N/A';
+            const totalParcelas = emprestimo.parcelas || 0;
+            const parcelasPagas = emprestimo.parcelas_pagas || 0;
+            const progresso = totalParcelas > 0 ? Math.round((parcelasPagas / totalParcelas) * 100) : 0;
+            
+            // Formatar data
+            const dataContratacao = emprestimo.data_contratacao 
+                ? new Date(emprestimo.data_contratacao).toLocaleDateString('pt-BR')
+                : 'N/A';
+            
+            // Status com base no progresso
+            let status = 'Ativo';
+            let statusClass = 'bg-success';
+            
+            if (progresso === 100) {
+                status = 'Quitado';
+                statusClass = 'bg-primary';
+            } else if (parcelasPagas > 0) {
+                status = 'Em Andamento';
+                statusClass = 'bg-warning';
+            }
+            
             const row = `
                 <tr>
                     <td>
-                        <strong>${emprestimo.cliente.nome}</strong><br>
-                        <small class="text-muted">${emprestimo.cliente.cpf}</small>
+                        <strong>${nomeCliente}</strong><br>
+                        <small class="text-muted">${cpfCliente}</small>
                     </td>
-                    <td>R$ ${emprestimo.valorTotal.toFixed(2)}</td>
-                    <td>${emprestimo.parcelas}</td>
-                    <td>${emprestimo.dataContratacao}</td>
-                    <td><span class="badge bg-warning">${emprestimo.status}</span></td>
+                    <td>R$ ${parseFloat(emprestimo.valor_total || 0).toFixed(2)}</td>
+                    <td>${totalParcelas}</td>
+                    <td>${dataContratacao}</td>
                     <td>
-                        <button class="btn btn-sm btn-info">
+                        <span class="badge ${statusClass}">${status}</span>
+                        <div class="progress mt-1" style="height: 5px;">
+                            <div class="progress-bar ${statusClass.replace('bg-', 'bg-')}" 
+                                 style="width: ${progresso}%"></div>
+                        </div>
+                        <small class="text-muted">${parcelasPagas}/${totalParcelas} parcelas</small>
+                    </td>
+                    <td>${emprestimo.taxa_juros ? emprestimo.taxa_juros + '%' : '0%'}</td>
+                    <td>
+                        <button class="btn btn-sm btn-info" onclick="verDetalhesEmprestimo(${emprestimo.id})" title="Ver Detalhes">
                             <i class="fas fa-eye"></i>
                         </button>
-                        <button class="btn btn-sm btn-warning">
+                        <button class="btn btn-sm btn-warning" onclick="editarEmprestimo(${emprestimo.id})" title="Editar">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button class="btn btn-sm btn-danger">
+                        <button class="btn btn-sm btn-danger" onclick="excluirEmprestimo(${emprestimo.id})" title="Excluir">
                             <i class="fas fa-trash"></i>
                         </button>
                     </td>
@@ -212,13 +248,31 @@ async function carregarEmprestimos() {
         const tbody = document.getElementById('tabelaEmprestimos');
         tbody.innerHTML = `
             <tr>
-                <td colspan="6" class="text-center text-danger py-4">
+                <td colspan="7" class="text-center text-danger py-4">
                     <i class="fas fa-exclamation-triangle"></i><br>
-                    <strong>Falha na Conexão</strong><br>
-                    <small>${error.message}</small>
+                    <strong>Erro ao Carregar</strong><br>
+                    <small>${error.message}</small><br>
+                    <button class="btn btn-sm btn-primary mt-2" onclick="carregarEmprestimos()">
+                        🔄 Tentar Novamente
+                    </button>
                 </td>
             </tr>
         `;
+    }
+}
+
+// ✅ FUNÇÕES AUXILIARES PARA OS BOTÕES
+function verDetalhesEmprestimo(id) {
+    alert(`Detalhes do empréstimo #${id} - Em desenvolvimento`);
+}
+
+function editarEmprestimo(id) {
+    alert(`Editar empréstimo #${id} - Em desenvolvimento`);
+}
+
+function excluirEmprestimo(id) {
+    if (confirm(`Tem certeza que deseja excluir o empréstimo #${id}?`)) {
+        alert(`Excluir empréstimo #${id} - Em desenvolvimento`);
     }
 }
 
