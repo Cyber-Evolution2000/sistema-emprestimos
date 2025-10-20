@@ -161,3 +161,87 @@ app.listen(PORT, async () => {
     
     await conectarBanco();
 });
+
+// ✅ ROTAS API PARA CLIENTES
+app.get('/api/admin/clientes', async (req, res) => {
+    try {
+        if (!isDatabaseConnected) {
+            return res.status(503).json({ error: 'Banco offline' });
+        }
+        
+        const client = await pool.connect();
+        const result = await client.query('SELECT * FROM clientes');
+        client.release();
+        
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Erro ao buscar clientes:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/admin/clientes', async (req, res) => {
+    try {
+        if (!isDatabaseConnected) {
+            return res.status(503).json({ error: 'Banco offline' });
+        }
+        
+        const { cpf, nome, email, telefone, endereco } = req.body;
+        
+        if (!cpf || !nome || !telefone) {
+            return res.status(400).json({ error: 'CPF, nome e telefone são obrigatórios' });
+        }
+        
+        const client = await pool.connect();
+        const result = await client.query(
+            'INSERT INTO clientes (cpf, nome, email, telefone, endereco) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+            [cpf, nome, email, telefone, endereco]
+        );
+        client.release();
+        
+        res.json({ 
+            message: 'Cliente cadastrado com sucesso!',
+            cliente: result.rows[0]
+        });
+    } catch (error) {
+        console.error('Erro ao salvar cliente:', error);
+        
+        if (error.code === '23505') { // Violação de chave única (CPF duplicado)
+            res.status(400).json({ error: 'CPF já cadastrado' });
+        } else {
+            res.status(500).json({ error: error.message });
+        }
+    }
+});
+
+// ✅ ROTA PARA EMPRÉSTIMOS (BÁSICA)
+app.get('/api/admin/emprestimos', async (req, res) => {
+    try {
+        if (!isDatabaseConnected) {
+            return res.status(503).json({ error: 'Banco offline' });
+        }
+        
+        // Por enquanto, retorna array vazio até criar a tabela
+        res.json([]);
+        
+    } catch (error) {
+        console.error('Erro ao buscar empréstimos:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ✅ ROTA PARA PAGAMENTOS (BÁSICA)
+app.get('/api/admin/pagamentos', async (req, res) => {
+    try {
+        if (!isDatabaseConnected) {
+            return res.status(503).json({ error: 'Banco offline' });
+        }
+        
+        // Por enquanto, retorna array vazio
+        res.json([]);
+        
+    } catch (error) {
+        console.error('Erro ao buscar pagamentos:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
