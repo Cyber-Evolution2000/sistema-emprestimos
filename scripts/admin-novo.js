@@ -470,8 +470,66 @@ function atualizarDashboard() {
     document.getElementById('totalAtrasados').textContent = '0';
 }
 
-function editarCliente(cpf) {
-    alert('Edição em desenvolvimento para CPF: ' + cpf);
+// ✅ EDITAR CLIENTE - FUNÇÃO CORRIGIDA
+async function editarCliente(cpf) {
+    try {
+        console.log('📝 Editando cliente:', cpf);
+        
+        // Buscar dados do cliente
+        const response = await fetch('/api/admin/clientes');
+        if (!response.ok) throw new Error('Falha ao buscar clientes');
+        
+        const clientes = await response.json();
+        const cliente = clientes.find(c => c.cpf === cpf);
+        
+        if (!cliente) {
+            showNotification('Cliente não encontrado!', 'error');
+            return;
+        }
+        
+        console.log('📋 Dados do cliente encontrado:', cliente);
+        
+        // ✅ VERIFICAR SE OS ELEMENTOS EXISTEM ANTES DE USAR
+        const modalTitle = document.getElementById('modalClienteTitle');
+        const cpfInput = document.getElementById('cpf');
+        const nomeInput = document.getElementById('nome');
+        const emailInput = document.getElementById('email');
+        const telefoneInput = document.getElementById('telefone');
+        const enderecoInput = document.getElementById('endereco');
+        
+        if (!modalTitle || !cpfInput || !nomeInput || !telefoneInput) {
+            console.error('❌ Elementos do modal não encontrados:', {
+                modalTitle, cpfInput, nomeInput, telefoneInput
+            });
+            throw new Error('Elementos do formulário não encontrados');
+        }
+        
+        // Preencher modal com dados do cliente
+        modalTitle.textContent = 'Editar Cliente';
+        cpfInput.value = cliente.cpf;
+        nomeInput.value = cliente.nome;
+        emailInput.value = cliente.email || '';
+        telefoneInput.value = cliente.telefone || '';
+        enderecoInput.value = cliente.endereco || '';
+        cpfInput.readOnly = true; // CPF não pode ser editado
+        
+        console.log('✅ Formulário preenchido com sucesso');
+        
+        // Mostrar modal
+        const modalElement = document.getElementById('modalCliente');
+        if (!modalElement) {
+            throw new Error('Modal não encontrado');
+        }
+        
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
+        
+        console.log('✅ Modal aberto com sucesso');
+        
+    } catch (error) {
+        console.error('❌ Erro ao editar cliente:', error);
+        showNotification('Erro ao carregar dados do cliente: ' + error.message, 'error');
+    }
 }
 
 function excluirCliente(cpf) {
@@ -690,16 +748,33 @@ async function salvarCliente() {
     }
 }
 
-// ✅ FUNÇÃO AUXILIAR - ABRIR MODAL PARA NOVO CLIENTE
+// ✅ FUNÇÃO AUXILIAR CORRIGIDA - ABRIR MODAL PARA NOVO CLIENTE
 function abrirModalCliente() {
-    const modal = new bootstrap.Modal(document.getElementById('modalCliente'));
-    const form = document.getElementById('formCliente');
-    
-    form.reset();
-    document.getElementById('modalClienteTitle').textContent = 'Novo Cliente';
-    document.getElementById('cpf').readOnly = false; // Permitir digitar CPF
-    
-    modal.show();
+    try {
+        const modalElement = document.getElementById('modalCliente');
+        if (!modalElement) {
+            throw new Error('Modal de cliente não encontrado');
+        }
+        
+        const modal = new bootstrap.Modal(modalElement);
+        const form = document.getElementById('formCliente');
+        
+        // ✅ VERIFICAR ELEMENTOS ANTES DE USAR
+        const modalTitle = document.getElementById('modalClienteTitle');
+        const cpfInput = document.getElementById('cpf');
+        
+        if (modalTitle) modalTitle.textContent = 'Novo Cliente';
+        if (cpfInput) cpfInput.readOnly = false; // Permitir digitar CPF
+        
+        if (form) form.reset();
+        
+        modal.show();
+        console.log('✅ Modal de novo cliente aberto');
+        
+    } catch (error) {
+        console.error('❌ Erro ao abrir modal:', error);
+        showNotification('Erro ao abrir formulário: ' + error.message, 'error');
+    }
 }
 
 // ✅ SISTEMA DE NOTIFICAÇÕES ELEGANTE

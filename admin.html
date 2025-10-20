@@ -403,6 +403,62 @@
     </div>
 </div>
 
+<!-- Modal Cliente -->
+<div class="modal fade" id="modalCliente" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalClienteTitle">Novo Cliente</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formCliente">
+                    <div class="mb-3">
+                        <label for="cpf" class="form-label">
+                            <i class="fas fa-id-card"></i> CPF *
+                        </label>
+                        <input type="text" class="form-control" id="cpf" placeholder="000.000.000-00" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="nome" class="form-label">
+                            <i class="fas fa-user"></i> Nome Completo *
+                        </label>
+                        <input type="text" class="form-control" id="nome" placeholder="Digite o nome completo" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="telefone" class="form-label">
+                            <i class="fas fa-phone"></i> Telefone *
+                        </label>
+                        <input type="tel" class="form-control" id="telefone" placeholder="(00) 00000-0000" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="email" class="form-label">
+                            <i class="fas fa-envelope"></i> E-mail
+                        </label>
+                        <input type="email" class="form-control" id="email" placeholder="cliente@email.com">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="endereco" class="form-label">
+                            <i class="fas fa-map-marker-alt"></i> Endereço
+                        </label>
+                        <textarea class="form-control" id="endereco" rows="3" placeholder="Rua, número, bairro, cidade..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="salvarCliente()">
+                    <i class="fas fa-save"></i> Salvar Cliente
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal de Confirmação -->
 <div class="modal fade" id="confirmModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
