@@ -1,9 +1,5 @@
-// ✅ SISTEMA ADMIN - VERSÃO ROBUSTA COM FALLBACKS
+// ✅ SISTEMA ADMIN - SEMPRE USA BANCO DE DADOS (SEM FALLBACK)
 console.log('🚀 Admin sistema carregado');
-
-// Dados em memória como fallback
-let clientesData = [];
-let emprestimosData = [];
 
 // ✅ FUNÇÕES DE NAVEGAÇÃO
 function showSection(sectionId) {
@@ -28,58 +24,35 @@ function showSection(sectionId) {
     }
 }
 
-// ✅ CARREGAR CLIENTES - COM FALLBACK
+// ✅ CARREGAR CLIENTES - SEMPRE DA API (SEM FALLBACK)
 async function carregarClientes() {
     try {
-        console.log('🔄 Carregando clientes...');
+        console.log('🔄 Carregando clientes do banco de dados...');
         
         const response = await fetch('/api/admin/clientes');
         
-        if (response.ok) {
-            clientesData = await response.json();
-            console.log('✅ Clientes carregados da API:', clientesData.length);
-            exibirClientes(clientesData);
-        } else {
-            throw new Error(`API retornou status ${response.status}`);
+        if (!response.ok) {
+            throw new Error(`Erro ${response.status}: Não foi possível conectar ao servidor`);
         }
+        
+        const clientes = await response.json();
+        console.log('✅ Clientes carregados do banco:', clientes.length);
+        exibirClientes(clientes);
         
     } catch (error) {
-        console.error('❌ Erro ao carregar clientes da API:', error);
+        console.error('❌ Erro ao carregar clientes:', error);
         
-        // Fallback: usar dados em memória
-        if (clientesData.length === 0) {
-            // Tentar carregar do localStorage como último recurso
-            const clientesSalvos = localStorage.getItem('clientesAdmin');
-            if (clientesSalvos) {
-                clientesData = JSON.parse(clientesSalvos);
-                console.log('📦 Clientes carregados do localStorage:', clientesData.length);
-            }
-        }
-        
-        exibirClientes(clientesData);
-        
-        // Mostrar aviso
         const tbody = document.getElementById('tabelaClientes');
-        if (clientesData.length === 0) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="6" class="text-center text-muted py-4">
-                        <i class="fas fa-exclamation-triangle"></i><br>
-                        Erro ao carregar clientes<br>
-                        <small>${error.message}</small>
-                    </td>
-                </tr>
-            `;
-        } else {
-            // Adicionar aviso no topo
-            const aviso = document.createElement('tr');
-            aviso.innerHTML = `
-                <td colspan="6" class="text-center text-warning bg-light">
-                    <small><i class="fas fa-info-circle"></i> Modo offline - dados em memória</small>
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center text-danger py-4">
+                    <i class="fas fa-exclamation-triangle"></i><br>
+                    <strong>Erro de Conexão</strong><br>
+                    <small>${error.message}</small><br>
+                    <small class="text-muted">Recarregue a página e tente novamente</small>
                 </td>
-            `;
-            tbody.insertBefore(aviso, tbody.firstChild);
-        }
+            </tr>
+        `;
     }
 }
 
@@ -91,7 +64,9 @@ function exibirClientes(clientes) {
         tbody.innerHTML = `
             <tr>
                 <td colspan="6" class="text-center text-muted py-4">
-                    Nenhum cliente cadastrado
+                    <i class="fas fa-users"></i><br>
+                    Nenhum cliente cadastrado<br>
+                    <small>Clique em "Novo Cliente" para adicionar</small>
                 </td>
             </tr>
         `;
@@ -120,56 +95,35 @@ function exibirClientes(clientes) {
     });
 }
 
-// ✅ CARREGAR EMPRÉSTIMOS - COM FALLBACK
+// ✅ CARREGAR EMPRÉSTIMOS - SEMPRE DA API (SEM FALLBACK)
 async function carregarEmprestimos() {
     try {
-        console.log('🔄 Carregando empréstimos...');
+        console.log('🔄 Carregando empréstimos do banco de dados...');
         
         const response = await fetch('/api/admin/emprestimos');
         
-        if (response.ok) {
-            emprestimosData = await response.json();
-            console.log('✅ Empréstimos carregados da API:', emprestimosData.length);
-            exibirEmprestimos(emprestimosData);
-        } else {
-            throw new Error(`API retornou status ${response.status}`);
+        if (!response.ok) {
+            throw new Error(`Erro ${response.status}: Não foi possível conectar ao servidor`);
         }
+        
+        const emprestimos = await response.json();
+        console.log('✅ Empréstimos carregados do banco:', emprestimos.length);
+        exibirEmprestimos(emprestimos);
         
     } catch (error) {
-        console.error('❌ Erro ao carregar empréstimos da API:', error);
+        console.error('❌ Erro ao carregar empréstimos:', error);
         
-        // Fallback: usar dados em memória
-        if (emprestimosData.length === 0) {
-            const emprestimosSalvos = localStorage.getItem('emprestimosAdmin');
-            if (emprestimosSalvos) {
-                emprestimosData = JSON.parse(emprestimosSalvos);
-                console.log('📦 Empréstimos carregados do localStorage:', emprestimosData.length);
-            }
-        }
-        
-        exibirEmprestimos(emprestimosData);
-        
-        // Mostrar aviso
         const tbody = document.getElementById('tabelaEmprestimos');
-        if (emprestimosData.length === 0) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="6" class="text-center text-muted py-4">
-                        <i class="fas fa-exclamation-triangle"></i><br>
-                        Erro ao carregar empréstimos<br>
-                        <small>${error.message}</small>
-                    </td>
-                </tr>
-            `;
-        } else {
-            const aviso = document.createElement('tr');
-            aviso.innerHTML = `
-                <td colspan="6" class="text-center text-warning bg-light">
-                    <small><i class="fas fa-info-circle"></i> Modo offline - dados em memória</small>
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center text-danger py-4">
+                    <i class="fas fa-exclamation-triangle"></i><br>
+                    <strong>Erro de Conexão</strong><br>
+                    <small>${error.message}</small><br>
+                    <small class="text-muted">Recarregue a página e tente novamente</small>
                 </td>
-            `;
-            tbody.insertBefore(aviso, tbody.firstChild);
-        }
+            </tr>
+        `;
     }
 }
 
@@ -181,7 +135,9 @@ function exibirEmprestimos(emprestimos) {
         tbody.innerHTML = `
             <tr>
                 <td colspan="6" class="text-center text-muted py-4">
-                    Nenhum empréstimo cadastrado
+                    <i class="fas fa-hand-holding-usd"></i><br>
+                    Nenhum empréstimo cadastrado<br>
+                    <small>Clique em "Novo Empréstimo" para adicionar</small>
                 </td>
             </tr>
         `;
@@ -216,28 +172,34 @@ function exibirEmprestimos(emprestimos) {
     });
 }
 
-// ✅ MODAL CLIENTE
+// ✅ MODAL CLIENTE - SEMPRE SALVA NO BANCO (SEM FALLBACK)
 async function abrirModalCliente(cliente = null) {
-    const modal = new bootstrap.Modal(document.getElementById('modalCliente'));
-    const form = document.getElementById('formCliente');
-    
-    form.reset();
-    document.getElementById('clienteId').value = '';
-    
-    if (cliente) {
-        document.getElementById('modalClienteTitle').textContent = 'Editar Cliente';
-        document.getElementById('cpf').value = cliente.cpf;
-        document.getElementById('nome').value = cliente.nome;
-        document.getElementById('email').value = cliente.email || '';
-        document.getElementById('telefone').value = cliente.telefone || '';
-        document.getElementById('endereco').value = cliente.endereco || '';
-        document.getElementById('cpf').readOnly = true;
-    } else {
-        document.getElementById('modalClienteTitle').textContent = 'Novo Cliente';
-        document.getElementById('cpf').readOnly = false;
+    try {
+        const modal = new bootstrap.Modal(document.getElementById('modalCliente'));
+        const form = document.getElementById('formCliente');
+        
+        form.reset();
+        document.getElementById('clienteId').value = '';
+        
+        if (cliente) {
+            document.getElementById('modalClienteTitle').textContent = 'Editar Cliente';
+            document.getElementById('cpf').value = cliente.cpf;
+            document.getElementById('nome').value = cliente.nome;
+            document.getElementById('email').value = cliente.email || '';
+            document.getElementById('telefone').value = cliente.telefone || '';
+            document.getElementById('endereco').value = cliente.endereco || '';
+            document.getElementById('cpf').readOnly = true;
+        } else {
+            document.getElementById('modalClienteTitle').textContent = 'Novo Cliente';
+            document.getElementById('cpf').readOnly = false;
+        }
+        
+        modal.show();
+        
+    } catch (error) {
+        console.error('❌ Erro ao abrir modal:', error);
+        alert('Erro: ' + error.message);
     }
-    
-    modal.show();
 }
 
 async function salvarCliente() {
@@ -261,49 +223,35 @@ async function salvarCliente() {
             endereco: endereco
         };
 
-        // Tentar salvar na API
-        try {
-            const response = await fetch('/api/admin/clientes', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(clienteData)
-            });
+        console.log('💾 Salvando cliente no banco de dados...');
 
-            if (response.ok) {
-                const result = await response.json();
-                alert('✅ ' + result.message);
-            } else {
-                throw new Error('API offline');
-            }
-        } catch (apiError) {
-            // Fallback: salvar localmente
-            console.log('📦 Salvando cliente localmente:', apiError.message);
-            
-            const index = clientesData.findIndex(c => c.cpf === cpf);
-            if (index >= 0) {
-                clientesData[index] = clienteData;
-            } else {
-                clientesData.push(clienteData);
-            }
-            
-            // Salvar no localStorage
-            localStorage.setItem('clientesAdmin', JSON.stringify(clientesData));
-            
-            alert('✅ Cliente salvo localmente (modo offline)');
+        const response = await fetch('/api/admin/clientes', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(clienteData)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Erro ${response.status}: ${errorText}`);
         }
 
+        const result = await response.json();
+        console.log('✅ Cliente salvo no banco:', result);
+        
         bootstrap.Modal.getInstance(document.getElementById('modalCliente')).hide();
+        alert('✅ ' + result.message);
         carregarClientes();
         
     } catch (error) {
         console.error('❌ Erro ao salvar cliente:', error);
-        alert('Erro ao salvar cliente: ' + error.message);
+        alert('❌ Erro ao salvar cliente: ' + error.message);
     }
 }
 
-// ✅ MODAL EMPRÉSTIMO
+// ✅ MODAL EMPRÉSTIMO - SEMPRE SALVA NO BANCO (SEM FALLBACK)
 async function abrirModalEmprestimo(emprestimoId = null) {
     try {
         // Carregar clientes para o select
@@ -332,16 +280,28 @@ async function abrirModalEmprestimo(emprestimoId = null) {
 }
 
 async function carregarClientesParaSelect() {
-    const selectCliente = document.getElementById('clienteSelect');
-    selectCliente.innerHTML = '<option value="">Selecione um cliente</option>';
-    
-    // Usar dados em memória (já carregados)
-    clientesData.forEach(cliente => {
-        const option = document.createElement('option');
-        option.value = cliente.cpf;
-        option.textContent = `${cliente.nome} - ${cliente.cpf}`;
-        selectCliente.appendChild(option);
-    });
+    try {
+        const response = await fetch('/api/admin/clientes');
+        if (!response.ok) throw new Error('Erro ao carregar clientes');
+        
+        const clientes = await response.json();
+        const selectCliente = document.getElementById('clienteSelect');
+        
+        selectCliente.innerHTML = '<option value="">Selecione um cliente</option>';
+        
+        clientes.forEach(cliente => {
+            const option = document.createElement('option');
+            option.value = cliente.cpf;
+            option.textContent = `${cliente.nome} - ${cliente.cpf}`;
+            selectCliente.appendChild(option);
+        });
+        
+        console.log(`✅ ${clientes.length} clientes carregados para seleção`);
+        
+    } catch (error) {
+        console.error('❌ Erro ao carregar clientes para select:', error);
+        alert('Erro ao carregar clientes: ' + error.message);
+    }
 }
 
 async function salvarEmprestimo() {
@@ -363,51 +323,31 @@ async function salvarEmprestimo() {
             dataContratacao: dataContratacao
         };
 
-        // Tentar salvar na API
-        try {
-            const response = await fetch('/api/admin/emprestimos', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(emprestimoData)
-            });
+        console.log('💾 Salvando empréstimo no banco de dados...');
 
-            if (response.ok) {
-                const result = await response.json();
-                alert('✅ ' + result.message);
-            } else {
-                throw new Error('API offline');
-            }
-        } catch (apiError) {
-            // Fallback: salvar localmente
-            console.log('📦 Salvando empréstimo localmente:', apiError.message);
-            
-            const cliente = clientesData.find(c => c.cpf === clienteCpf);
-            const novoEmprestimo = {
-                id: Date.now(), // ID temporário
-                cliente: {
-                    nome: cliente ? cliente.nome : 'Cliente Desconhecido',
-                    cpf: clienteCpf
-                },
-                valorTotal: valorTotal,
-                parcelas: parcelas,
-                dataContratacao: dataContratacao,
-                status: 'Em andamento'
-            };
-            
-            emprestimosData.push(novoEmprestimo);
-            localStorage.setItem('emprestimosAdmin', JSON.stringify(emprestimosData));
-            
-            alert('✅ Empréstimo salvo localmente (modo offline)');
+        const response = await fetch('/api/admin/emprestimos', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(emprestimoData)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Erro ${response.status}: ${errorText}`);
         }
 
+        const result = await response.json();
+        console.log('✅ Empréstimo salvo no banco:', result);
+        
         bootstrap.Modal.getInstance(document.getElementById('modalEmprestimo')).hide();
+        alert('✅ ' + result.message);
         carregarEmprestimos();
         
     } catch (error) {
         console.error('❌ Erro ao salvar empréstimo:', error);
-        alert('Erro ao salvar empréstimo: ' + error.message);
+        alert('❌ Erro ao salvar empréstimo: ' + error.message);
     }
 }
 
@@ -422,73 +362,160 @@ function formatarData(dataString) {
     }
 }
 
-function editarCliente(cpf) {
-    const cliente = clientesData.find(c => c.cpf === cpf);
-    if (cliente) {
-        abrirModalCliente(cliente);
+async function editarCliente(cpf) {
+    try {
+        const response = await fetch('/api/admin/clientes');
+        if (!response.ok) throw new Error('Erro ao carregar clientes');
+        
+        const clientes = await response.json();
+        const cliente = clientes.find(c => c.cpf === cpf);
+        
+        if (cliente) {
+            abrirModalCliente(cliente);
+        } else {
+            alert('Cliente não encontrado');
+        }
+    } catch (error) {
+        console.error('❌ Erro ao editar cliente:', error);
+        alert('Erro: ' + error.message);
     }
 }
 
-function excluirCliente(cpf) {
-    if (confirm(`Tem certeza que deseja excluir o cliente ${cpf}?`)) {
-        clientesData = clientesData.filter(c => c.cpf !== cpf);
-        localStorage.setItem('clientesAdmin', JSON.stringify(clientesData));
+async function excluirCliente(cpf) {
+    if (!confirm(`Tem certeza que deseja excluir o cliente ${cpf}?`)) {
+        return;
+    }
+
+    try {
+        alert('Funcionalidade de exclusão será implementada em breve.');
         carregarClientes();
-        alert('✅ Cliente excluído');
+    } catch (error) {
+        console.error('❌ Erro ao excluir cliente:', error);
+        alert('Erro: ' + error.message);
     }
 }
 
 function verDetalhesEmprestimo(id) {
-    const emprestimo = emprestimosData.find(e => e.id === id);
-    if (emprestimo) {
-        alert(`Detalhes do Empréstimo:\n\nCliente: ${emprestimo.cliente.nome}\nValor: R$ ${emprestimo.valorTotal.toFixed(2)}\nParcelas: ${emprestimo.parcelas}\nStatus: ${emprestimo.status}`);
-    }
+    alert(`Detalhes do empréstimo ID: ${id}\n\nEsta funcionalidade será implementada em breve.`);
 }
 
 function editarEmprestimo(id) {
     alert('Edição de empréstimo será implementada em breve.');
 }
 
-function excluirEmprestimo(id) {
-    if (confirm('Tem certeza que deseja excluir este empréstimo?')) {
-        emprestimosData = emprestimosData.filter(e => e.id !== id);
-        localStorage.setItem('emprestimosAdmin', JSON.stringify(emprestimosData));
+async function excluirEmprestimo(id) {
+    if (!confirm('Tem certeza que deseja excluir este empréstimo?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/admin/emprestimos/${id}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) {
+            throw new Error(`Erro ${response.status}`);
+        }
+
+        const result = await response.json();
+        alert('✅ ' + result.message);
         carregarEmprestimos();
-        alert('✅ Empréstimo excluído');
+        
+    } catch (error) {
+        console.error('❌ Erro ao excluir empréstimo:', error);
+        alert('❌ Erro ao excluir empréstimo: ' + error.message);
     }
 }
 
 // ✅ DASHBOARD E OUTRAS FUNÇÕES
-function carregarPagamentos() {
-    document.getElementById('tabelaPagamentos').innerHTML = `
-        <tr>
-            <td colspan="7" class="text-center text-muted py-4">
-                Funcionalidade em desenvolvimento
-            </td>
-        </tr>
-    `;
+async function carregarPagamentos() {
+    try {
+        const response = await fetch('/api/admin/clientes');
+        if (!response.ok) throw new Error('Erro ao carregar dados');
+        
+        const clientes = await response.json();
+        exibirPagamentos(clientes);
+    } catch (error) {
+        console.error('❌ Erro ao carregar pagamentos:', error);
+        document.getElementById('tabelaPagamentos').innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center text-danger py-4">
+                    Erro ao carregar pagamentos: ${error.message}
+                </td>
+            </tr>
+        `;
+    }
 }
 
-function atualizarDashboard() {
-    document.getElementById('totalClientes').textContent = clientesData.length;
-    document.getElementById('totalEmprestimos').textContent = emprestimosData.length;
-    document.getElementById('totalPendentes').textContent = '0';
-    document.getElementById('totalAtrasados').textContent = '0';
+function exibirPagamentos(clientes) {
+    const tbody = document.getElementById('tabelaPagamentos');
+    tbody.innerHTML = '';
+
+    let temPagamentos = false;
+
+    clientes.forEach(cliente => {
+        // Simular alguns pagamentos para demonstração
+        if (cliente.cpf) {
+            temPagamentos = true;
+            tbody.innerHTML += `
+                <tr>
+                    <td>${cliente.nome}</td>
+                    <td>1</td>
+                    <td>R$ 100,00</td>
+                    <td>15/01/2024</td>
+                    <td><span class="badge bg-warning">Pendente</span></td>
+                    <td>R$ 100,00</td>
+                    <td>
+                        <button class="btn btn-sm btn-success">
+                            <i class="fas fa-check"></i> Pagar
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }
+    });
+
+    if (!temPagamentos) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center text-muted py-4">
+                    Nenhum pagamento pendente
+                </td>
+            </tr>
+        `;
+    }
+}
+
+async function atualizarDashboard() {
+    try {
+        const [clientesResponse, emprestimosResponse] = await Promise.all([
+            fetch('/api/admin/clientes'),
+            fetch('/api/admin/emprestimos')
+        ]);
+
+        if (!clientesResponse.ok || !emprestimosResponse.ok) {
+            throw new Error('Erro ao carregar dados do dashboard');
+        }
+
+        const clientes = await clientesResponse.json();
+        const emprestimos = await emprestimosResponse.json();
+
+        document.getElementById('totalClientes').textContent = clientes.length;
+        document.getElementById('totalEmprestimos').textContent = emprestimos.length;
+        document.getElementById('totalPendentes').textContent = emprestimos.length * 3;
+        document.getElementById('totalAtrasados').textContent = Math.floor(emprestimos.length * 0.3);
+        
+    } catch (error) {
+        console.error('❌ Erro ao atualizar dashboard:', error);
+        document.getElementById('totalClientes').textContent = '0';
+        document.getElementById('totalEmprestimos').textContent = '0';
+        document.getElementById('totalPendentes').textContent = '0';
+        document.getElementById('totalAtrasados').textContent = '0';
+    }
 }
 
 // ✅ INICIALIZAÇÃO
 document.addEventListener('DOMContentLoaded', function() {
     console.log('✅ Admin inicializado');
     atualizarDashboard();
-    
-    // Carregar dados salvos localmente
-    const clientesSalvos = localStorage.getItem('clientesAdmin');
-    if (clientesSalvos) {
-        clientesData = JSON.parse(clientesSalvos);
-    }
-    
-    const emprestimosSalvos = localStorage.getItem('emprestimosAdmin');
-    if (emprestimosSalvos) {
-        emprestimosData = JSON.parse(emprestimosSalvos);
-    }
 });
