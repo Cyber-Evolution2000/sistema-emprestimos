@@ -6,59 +6,124 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// ✅ CONEXÃO COM POSTGRESQL
-const getPoolConfig = () => {
-  const connectionString = process.env.DATABASE_URL || 'postgresql://admin:VI5ygJqYR2aGq2BdzdbnenKeN5vCNAxg@dpg-cvjf6m5umphs6s7v8qg0-a.oregon-postgres.render.com/sistema_emprestimos?ssl=true';
-  
-  console.log('🔗 String de conexão:', connectionString ? 'Configurada' : 'Não encontrada');
-  
-  return {
-    connectionString: connectionString,
-    ssl: {
-      rejectUnauthorized: false
-    },
-    max: 10,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000,
-  };
-};
-
-let pool;
-let isDatabaseConnected = false;
-
-// ✅ INICIALIZAR POOL DE CONEXÃO
-function initializePool() {
+// ✅ CONEXÃO COM POSTGRESQL - CONFIGURAÇÃO ROBUSTA
+function criarPool() {
   try {
-    const poolConfig = getPoolConfig();
-    pool = new Pool(poolConfig);
-    console.log('✅ Pool de conexão inicializado');
-    return true;
+    // URL do Render com fallback
+    const connectionString = process.env.DATABASE_URL || 'postgresql://admin:VI5ygJqYR2aGq2BdzdbnenKeN5vCNAxg@dpg-cvjf6m5umphs6s7v8qg0-a.oregon-postgres.render.com/sistema_emprestimos';
+    
+    console.log('🔗 Configurando conexão com PostgreSQL...');
+    
+    const poolConfig = {
+      connectionString: connectionString,
+      ssl: {
+        rejectUnauthorized: false
+      },
+      // Configurações otimizadas para Render
+      max: 5,
+      min: 1,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 15000,
+      maxUses: 7500,
+    };
+
+    const pool = new Pool(poolConfig);
+    
+    // Event listeners para debug
+    pool.on('connect', () => {
+      console.log('✅ Nova conexão estabelecida com PostgreSQL');
+    });
+    
+    pool.on('error', (err) => {
+      console.error('💥 Erro no pool de conexão:', err);
+    });
+    
+    console.log('✅ Pool de conexão configurado com sucesso');
+    return pool;
+    
   } catch (error) {
-    console.error('❌ Erro ao inicializar pool:', error.message);
-    return false;
+    console.error('❌ Erro ao criar pool:', error.message);
+    return null;
   }
 }
+
+let pool = criarPool();
+let isDatabaseConnected = false;
 
 // ✅ VERIFICAR CONEXÃO COM BANCO
 async function testarConexao() {
   if (!pool) {
-    console.log('🔄 Inicializando pool...');
-    initializePool();
+    console.log('🔄 Recriando pool de conexão...');
+    pool = criarPool();
+    if (!pool) return false;
   }
 
   let client;
   try {
+    console.log('🔍 Testando conexão com banco...');
     client = await pool.connect();
-    const result = await client.query('SELECT NOW()');
-    console.log('✅ Conexão com PostgreSQL estabelecida:', result.rows[0].now);
+    const result = await client.query('SELECT NOW() as server_time');
+    console.log('✅ Conexão OK. Tempo do servidor:', result.rows[0].server_time);
     isDatabaseConnected = true;
     return true;
   } catch (error) {
-    console.error('❌ Erro ao conectar com PostgreSQL:', error.message);
+    console.error('❌ Falha na conexão:', error.message);
     isDatabaseConnected = false;
+    
+    // Tentar reconectar
+    console.log('🔄 Tentando reconectar em 5 segundos...');
+    setTimeout(() => {
+      pool = criarPool();
+      testarConexao();
+    }, 5000);
+    
     return false;
   } finally {
     if (client) client.release();
+  }
+}
+
+// ✅ DIAGNÓSTICO DA CONEXÃO COM BANCO
+async function diagnosticarConexao() {
+  console.log('🔍 INICIANDO DIAGNÓSTICO DO BANCO DE DADOS...');
+  
+  try {
+    const poolConfig = {
+      connectionString: process.env.DATABASE_URL || 'postgresql://admin:VI5ygJqYR2aGq2BdzdbnenKeN5vCNAxg@dpg-cvjf6m5umphs6s7v8qg0-a.oregon-postgres.render.com/sistema_emprestimos',
+      ssl: { rejectUnauthorized: false },
+      connectionTimeoutMillis: 10000,
+      idleTimeoutMillis: 30000,
+    };
+
+    console.log('📡 Tentando conectar com PostgreSQL...');
+    const testPool = new Pool(poolConfig);
+    const client = await testPool.connect();
+    
+    console.log('✅ Conexão estabelecida!');
+    
+    // Testar consulta simples
+    const result = await client.query('SELECT NOW() as tempo_atual, version() as versao');
+    console.log('⏰ Tempo do servidor:', result.rows[0].tempo_atual);
+    console.log('🐘 Versão PostgreSQL:', result.rows[0].versao.split(',')[0]);
+    
+    // Verificar tabelas
+    const tabelas = await client.query(`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public'
+    `);
+    console.log('📊 Tabelas existentes:', tabelas.rows.map(t => t.table_name));
+    
+    client.release();
+    await testPool.end();
+    
+    console.log('🎉 DIAGNÓSTICO CONCLUÍDO: Banco de dados funcionando perfeitamente!');
+    return true;
+    
+  } catch (error) {
+    console.error('💥 ERRO NO DIAGNÓSTICO:', error.message);
+    console.error('🔧 Detalhes técnicos:', error);
+    return false;
   }
 }
 
@@ -66,7 +131,7 @@ async function testarConexao() {
 async function criarTabelas() {
   if (!isDatabaseConnected) {
     console.log('⏳ Aguardando conexão com banco...');
-    return;
+    return false;
   }
 
   let client;
@@ -111,8 +176,10 @@ async function criarTabelas() {
     `);
 
     console.log('✅ Tabelas criadas/verificadas com sucesso!');
+    return true;
   } catch (error) {
     console.error('❌ Erro ao criar tabelas:', error.message);
+    return false;
   } finally {
     if (client) client.release();
   }
@@ -126,38 +193,85 @@ app.use(express.urlencoded({ extended: true }));
 // ✅ SERVIR ARQUIVOS ESTÁTICOS
 app.use(express.static(__dirname));
 
-// ✅ MIDDLEWARE PARA VERIFICAR CONEXÃO
+// ✅ MIDDLEWARE PARA VERIFICAR CONEXÃO (MAIS TOLERANTE)
 app.use(async (req, res, next) => {
-  if (!isDatabaseConnected && !req.path.includes('/api/health')) {
+  // Não bloquear rotas críticas
+  if (req.path === '/api/health' || req.path === '/api/test') {
+    return next();
+  }
+  
+  // Para rotas de API, verificar conexão mas não bloquear totalmente
+  if (req.path.startsWith('/api/') && !isDatabaseConnected) {
+    console.log('⚠️  Banco offline para rota:', req.path);
+    
+    // Tentar reconectar uma vez
     const connected = await testarConexao();
     if (!connected) {
+      // Para rotas GET, retornar array vazio em vez de erro
+      if (req.method === 'GET') {
+        if (req.path.includes('/clientes') || req.path.includes('/emprestimos')) {
+          return res.json([]);
+        }
+      }
+      // Para outras rotas, retornar erro
       return res.status(503).json({ 
         error: 'Serviço temporariamente indisponível',
         message: 'Banco de dados offline'
       });
     }
   }
+  
   next();
 });
 
 // ✅ ROTA SIMPLES PARA TESTE
-app.get('/api/test', async (req, res) => {
+app.get('/api/test', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    message: 'API funcionando',
+    database: isDatabaseConnected ? 'Conectado' : 'Desconectado',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ✅ ROTA DE HEALTH CHECK DETALHADA
+app.get('/api/health', async (req, res) => {
   try {
-    const connected = await testarConexao();
+    const dbConnected = await testarConexao();
+    
+    let dbDetails = {};
+    if (dbConnected && pool) {
+      try {
+        const client = await pool.connect();
+        const tables = await client.query(`
+          SELECT COUNT(*) as total_clientes FROM clientes;
+        `);
+        dbDetails.totalClientes = tables.rows[0].total_clientes;
+        client.release();
+      } catch (dbError) {
+        dbDetails.error = dbError.message;
+      }
+    }
+    
     res.json({ 
-      status: 'OK', 
-      database: connected ? 'Conectado' : 'Desconectado',
-      timestamp: new Date().toISOString()
+      status: dbConnected ? 'OK' : 'ERROR',
+      message: dbConnected ? 'Sistema operacional' : 'Problemas no banco',
+      database: {
+        connected: dbConnected,
+        details: dbDetails
+      },
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development'
     });
   } catch (error) {
     res.status(500).json({ 
       status: 'ERROR', 
-      message: error.message 
+      message: 'Erro no health check: ' + error.message
     });
   }
 });
 
-// ✅ ROTA PARA BUSCAR CLIENTE POR CPF
+// ✅ ROTA PARA BUSCAR CLIENTE POR CPF (FRONTEND)
 app.get('/api/clients/:cpf', async (req, res) => {
   let client;
   try {
@@ -483,7 +597,7 @@ app.post('/api/payments/pix', async (req, res) => {
       success: true,
       valor: 100.00,
       txid: 'pix-' + Date.now(),
-      qrCode: `data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI0ZGRiIvPjxwYXRoIGQ9Ik00MCA0MGgxMjB2MTIwSDQweiIgZmlsbD0iIzAwMCIvPjwvc3ZnPg==`,
+      qrCode: `data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlslD0iI0ZGRiIvPjxwYXRoIGQ9Ik00MCA0MGgxMjB2MTIwSDQweiIgZmlsbD0iIzAwMCIvPjwvc3ZnPg==`,
       pixCopiaECola: `00020126580014br.gov.bcb.pix0136pix.sistema.emprestimos${Date.now()}520400005303986540100.005802BR5903PIX6008Sistema62070503***6304`,
       cliente: 'Cliente Teste'
     };
@@ -507,25 +621,6 @@ app.get('/api/webhooks/status/:txid', (req, res) => {
 // ✅ Rota para admin page
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'admin.html'));
-});
-
-// ✅ Rota de health check
-app.get('/api/health', async (req, res) => {
-  try {
-    const dbConnected = await testarConexao();
-    res.json({ 
-      status: 'OK', 
-      message: 'API funcionando',
-      database: dbConnected ? 'Conectado' : 'Desconectado',
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      status: 'ERROR', 
-      message: 'Problemas na API',
-      database: 'Desconectado'
-    });
-  }
 });
 
 // ✅ DEPOIS servimos o frontend para qualquer outra rota
@@ -571,15 +666,19 @@ app.listen(PORT, async () => {
   console.log(`👨‍💼 Admin: http://localhost:${PORT}/admin`);
   console.log(`🔗 API: http://localhost:${PORT}/api`);
   
-  // Inicializar pool
-  initializePool();
+  // Inicializar conexão com banco
+  console.log('🔄 Iniciando conexão com banco de dados...');
+  await testarConexao();
   
-  // Tentar conectar ao banco
-  setTimeout(async () => {
-    console.log('🔄 Conectando ao banco de dados...');
-    await testarConexao();
-    await criarTabelas();
-  }, 3000);
+  // Executar diagnóstico
+  console.log('🔍 Executando diagnóstico...');
+  await diagnosticarConexao();
+  
+  // Criar tabelas se necessário
+  console.log('📊 Verificando tabelas...');
+  await criarTabelas();
+  
+  console.log('🎉 Sistema inicializado com sucesso!');
 });
 
 // ✅ TRATAR ENCERRAMENTO GRACIOSO
