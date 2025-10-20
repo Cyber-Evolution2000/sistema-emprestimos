@@ -244,8 +244,134 @@ function abrirModalCliente(cliente = null) {
     modal.show();
 }
 
+// ✅ ABRIR MODAL DE EMPRÉSTIMO
 function abrirModalEmprestimo() {
-    alert('Funcionalidade de empréstimos em desenvolvimento');
+    const modal = new bootstrap.Modal(document.getElementById('modalEmprestimo'));
+    const form = document.getElementById('formEmprestimo');
+    
+    form.reset();
+    document.getElementById('modalEmprestimoTitle').textContent = 'Novo Empréstimo';
+    
+    // Carregar lista de clientes para o select
+    carregarClientesParaSelect();
+    
+    modal.show();
+}
+
+// ✅ CARREGAR CLIENTES PARA SELECT
+async function carregarClientesParaSelect() {
+    try {
+        const response = await fetch('/api/admin/clientes');
+        
+        if (!response.ok) {
+            throw new Error('Falha ao carregar clientes');
+        }
+        
+        const clientes = await response.json();
+        const select = document.getElementById('clienteSelect');
+        
+        select.innerHTML = '<option value="">Selecione um cliente</option>';
+        
+        clientes.forEach(cliente => {
+            const option = document.createElement('option');
+            option.value = cliente.cpf;
+            option.textContent = `${cliente.nome} - ${cliente.cpf}`;
+            select.appendChild(option);
+        });
+        
+    } catch (error) {
+        console.error('Erro ao carregar clientes:', error);
+        alert('Erro ao carregar lista de clientes');
+    }
+}
+
+// ✅ CALCULAR PARCELAS AUTOMATICAMENTE
+function calcularParcelas() {
+    const valorTotal = parseFloat(document.getElementById('valorTotal').value) || 0;
+    const parcelas = parseInt(document.getElementById('numeroParcelas').value) || 1;
+    
+    if (valorTotal > 0 && parcelas > 0) {
+        const valorParcela = valorTotal / parcelas;
+        document.getElementById('valorParcela').value = valorParcela.toFixed(2);
+        
+        // Gerar datas de vencimento
+        gerarDatasVencimento(parcelas);
+    }
+}
+
+// ✅ GERAR DATAS DE VENCIMENTO
+function gerarDatasVencimento(parcelas) {
+    const dataContainer = document.getElementById('datasVencimento');
+    dataContainer.innerHTML = '';
+    
+    const dataBase = new Date();
+    dataBase.setMonth(dataBase.getMonth() + 1); // Primeiro vencimento em 1 mês
+    dataBase.setDate(10); // Vencimento no dia 10
+    
+    for (let i = 1; i <= parcelas; i++) {
+        const dataVencimento = new Date(dataBase);
+        dataVencimento.setMonth(dataBase.getMonth() + (i - 1));
+        
+        const div = document.createElement('div');
+        div.className = 'mb-2';
+        div.innerHTML = `
+            <label class="form-label small">Parcela ${i}:</label>
+            <input type="date" class="form-control form-control-sm" 
+                   value="${dataVencimento.toISOString().split('T')[0]}" 
+                   readonly>
+        `;
+        dataContainer.appendChild(div);
+    }
+}
+
+// ✅ SALVAR EMPRÉSTIMO
+async function salvarEmprestimo() {
+    try {
+        const clienteCpf = document.getElementById('clienteSelect').value;
+        const valorTotal = document.getElementById('valorTotal').value;
+        const numeroParcelas = document.getElementById('numeroParcelas').value;
+        const taxaJuros = document.getElementById('taxaJuros').value || 0;
+        const observacoes = document.getElementById('observacoesEmprestimo').value;
+        
+        if (!clienteCpf || !valorTotal || !numeroParcelas) {
+            alert('Por favor, preencha cliente, valor total e número de parcelas.');
+            return;
+        }
+        
+        const emprestimoData = {
+            cliente_cpf: clienteCpf,
+            valor_total: parseFloat(valorTotal),
+            parcelas: parseInt(numeroParcelas),
+            taxa_juros: parseFloat(taxaJuros),
+            observacoes: observacoes
+        };
+        
+        console.log('💾 Salvando empréstimo...', emprestimoData);
+        
+        const response = await fetch('/api/admin/emprestimos', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(emprestimoData)
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Falha ao salvar: ${response.status} - ${errorText}`);
+        }
+        
+        const result = await response.json();
+        console.log('✅ Empréstimo salvo:', result);
+        
+        bootstrap.Modal.getInstance(document.getElementById('modalEmprestimo')).hide();
+        alert('✅ ' + result.message);
+        carregarEmprestimos();
+        
+    } catch (error) {
+        console.error('💥 Erro ao salvar empréstimo:', error);
+        alert('💥 Erro ao salvar empréstimo: ' + error.message);
+    }
 }
 
 function carregarPagamentos() {
