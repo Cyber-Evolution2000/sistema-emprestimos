@@ -164,7 +164,7 @@ app.post('/api/admin/clientes', async (req, res) => {
     }
 });
 
-// ✅ ROTA GET PARA EMPRÉSTIMOS (COM DADOS REAIS)
+// ✅ ROTA GET PARA EMPRÉSTIMOS (COM CONTAGEM CORRETA)
 app.get('/api/admin/emprestimos', async (req, res) => {
     try {
         if (!isDatabaseConnected) {
@@ -187,15 +187,16 @@ app.get('/api/admin/emprestimos', async (req, res) => {
             return res.json([]);
         }
         
-        // Buscar empréstimos com dados do cliente
+        // ✅ QUERY CORRIGIDA - SEM LEFT JOIN DESNECESSÁRIO
         const result = await client.query(`
-            SELECT e.*, c.nome as cliente_nome, c.telefone as cliente_telefone,
-                   COUNT(p.id) as total_parcelas,
-                   SUM(CASE WHEN p.status = 'Pago' THEN 1 ELSE 0 END) as parcelas_pagas
+            SELECT 
+                e.*, 
+                c.nome as cliente_nome,
+                c.telefone as cliente_telefone,
+                (SELECT COUNT(*) FROM parcelas p WHERE p.emprestimo_id = e.id) as total_parcelas,
+                (SELECT COUNT(*) FROM parcelas p WHERE p.emprestimo_id = e.id AND p.status = 'Pago') as parcelas_pagas
             FROM emprestimos e
             LEFT JOIN clientes c ON e.cliente_cpf = c.cpf
-            LEFT JOIN parcelas p ON e.id = p.emprestimo_id
-            GROUP BY e.id, c.nome, c.telefone
             ORDER BY e.data_contratacao DESC
         `);
         
@@ -630,6 +631,45 @@ app.get('/api/clients/:cpf', async (req, res) => {
         
     } catch (error) {
         console.error('❌ Erro ao buscar cliente:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ✅ ROTA DEBUG - VER EMPRÉSTIMOS POR CLIENTE
+app.get('/api/admin/debug-emprestimos', async (req, res) => {
+    try {
+        if (!isDatabaseConnected) {
+            return res.status(503).json({ error: 'Banco offline' });
+        }
+        
+        const client = await pool.connect();
+        
+        // Contagem por cliente
+        const countResult = await client.query(`
+            SELECT 
+                cliente_cpf,
+                COUNT(*) as total_emprestimos
+            FROM emprestimos 
+            GROUP BY cliente_cpf
+            ORDER BY total_emprestimos DESC
+        `);
+        
+        // Lista completa de empréstimos
+        const listResult = await client.query(`
+            SELECT id, cliente_cpf, valor_total, data_contratacao
+            FROM emprestimos 
+            ORDER BY cliente_cpf, data_contratacao
+        `);
+        
+        client.release();
+        
+        res.json({
+            contagem_por_cliente: countResult.rows,
+            todos_emprestimos: listResult.rows,
+            total_geral: listResult.rows.length
+        });
+        
+    } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
