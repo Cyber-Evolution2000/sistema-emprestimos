@@ -701,3 +701,184 @@ function abrirModalCliente() {
     
     modal.show();
 }
+
+// ✅ SISTEMA DE NOTIFICAÇÕES ELEGANTE
+function showNotification(message, type = 'success', duration = 4000) {
+    // Remover notificação anterior se existir
+    const existingNotification = document.querySelector('.custom-notification');
+    if (existingNotification) {
+        existingNotification.remove();
+    }
+    
+    // Criar nova notificação
+    const notification = document.createElement('div');
+    notification.className = `custom-notification notification-${type}`;
+    notification.innerHTML = `
+        <div class="d-flex align-items-center p-3">
+            <div class="flex-grow-1">
+                <strong>${type === 'success' ? '✅ Sucesso!' : type === 'error' ? '❌ Erro!' : '⚠️ Aviso!'}</strong>
+                <div class="small">${message}</div>
+            </div>
+            <button type="button" class="btn-close btn-close-white ms-2" onclick="this.parentElement.parentElement.remove()"></button>
+        </div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto-remover após o tempo definido
+    setTimeout(() => {
+        if (notification.parentElement) {
+            notification.remove();
+        }
+    }, duration);
+}
+
+// ✅ FUNÇÃO SALVAR CLIENTE ATUALIZADA COM NOTIFICAÇÃO
+async function salvarCliente() {
+    try {
+        const cpf = document.getElementById('cpf').value;
+        const nome = document.getElementById('nome').value;
+        const email = document.getElementById('email').value;
+        const telefone = document.getElementById('telefone').value;
+        const endereco = document.getElementById('endereco').value;
+        const isEditing = document.getElementById('cpf').readOnly;
+
+        if (!cpf || !nome || !telefone) {
+            showNotification('Por favor, preencha CPF, nome e telefone.', 'warning');
+            return;
+        }
+
+        const clienteData = {
+            cpf: cpf,
+            nome: nome,
+            email: email,
+            telefone: telefone,
+            endereco: endereco
+        };
+
+        let response;
+        let actionText;
+        
+        if (isEditing) {
+            console.log('✏️ Atualizando cliente existente...');
+            response = await fetch(`/api/admin/clientes/${cpf}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(clienteData)
+            });
+            actionText = 'atualizado';
+        } else {
+            console.log('💾 Criando novo cliente...');
+            response = await fetch('/api/admin/clientes', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(clienteData)
+            });
+            actionText = 'cadastrado';
+        }
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Falha ao salvar: ${response.status} - ${errorText}`);
+        }
+
+        const result = await response.json();
+        console.log('✅ Cliente salvo:', result);
+        
+        // Fechar modal
+        bootstrap.Modal.getInstance(document.getElementById('modalCliente')).hide();
+        
+        // Mostrar notificação elegante
+        showNotification(`Cliente ${actionText} com sucesso!`, 'success');
+        
+        // Recarregar lista
+        setTimeout(() => {
+            carregarClientes();
+        }, 1000);
+        
+    } catch (error) {
+        console.error('💥 Erro ao salvar cliente:', error);
+        
+        let errorMessage = error.message;
+        if (error.message.includes('23505')) {
+            errorMessage = 'CPF já cadastrado no sistema!';
+        } else if (error.message.includes('400')) {
+            errorMessage = 'Dados inválidos. Verifique as informações.';
+        }
+        
+        showNotification(errorMessage, 'error', 5000);
+    }
+}
+
+// ✅ ATUALIZAR FUNÇÃO EXCLUIR CLIENTE COM NOTIFICAÇÃO
+async function excluirCliente(cpf) {
+    try {
+        // Verificar se o cliente tem empréstimos
+        const emprestimosResponse = await fetch('/api/admin/emprestimos');
+        if (emprestimosResponse.ok) {
+            const emprestimos = await emprestimosResponse.json();
+            const emprestimosCliente = emprestimos.filter(e => e.cliente_cpf === cpf);
+            
+            if (emprestimosCliente.length > 0) {
+                showNotification(
+                    `Não é possível excluir! Cliente possui ${emprestimosCliente.length} empréstimo(s) ativo(s).`, 
+                    'warning', 
+                    6000
+                );
+                return;
+            }
+        }
+        
+        // Usar modal de confirmação personalizado do Bootstrap
+        const confirmModal = new bootstrap.Modal(document.getElementById('confirmModal'));
+        document.getElementById('confirmMessage').textContent = 
+            `Tem certeza que deseja excluir o cliente ${cpf}? Esta ação não pode ser desfeita!`;
+        
+        // Esperar confirmação do usuário
+        const userConfirmed = await new Promise((resolve) => {
+            document.getElementById('confirmYes').onclick = () => {
+                confirmModal.hide();
+                resolve(true);
+            };
+            document.getElementById('confirmNo').onclick = () => {
+                confirmModal.hide();
+                resolve(false);
+            };
+            confirmModal.show();
+        });
+        
+        if (!userConfirmed) return;
+        
+        console.log('🗑️ Excluindo cliente:', cpf);
+        
+        const response = await fetch(`/api/admin/clientes/${cpf}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+            if (response.status === 404) {
+                throw new Error('Cliente não encontrado');
+            }
+            throw new Error(`Erro ${response.status}: ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        showNotification('Cliente excluído com sucesso!', 'success');
+        carregarClientes();
+        
+    } catch (error) {
+        console.error('❌ Erro ao excluir cliente:', error);
+        
+        if (error.message.includes('404')) {
+            showNotification('Cliente não encontrado!', 'error');
+        } else if (error.message.includes('empréstimos')) {
+            showNotification(error.message, 'warning');
+        } else {
+            showNotification('Erro ao excluir cliente: ' + error.message, 'error');
+        }
+    }
+}

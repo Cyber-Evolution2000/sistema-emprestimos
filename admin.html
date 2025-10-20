@@ -18,6 +18,50 @@
         }
         .hidden { display: none; }
     </style>
+
+<style>
+    /* NOTIFICAÇÕES PERSONALIZADAS */
+    .custom-notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        min-width: 300px;
+        border-radius: 10px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        animation: slideInRight 0.3s ease-out;
+    }
+    
+    @keyframes slideInRight {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    .notification-success {
+        background: linear-gradient(135deg, #28a745, #20c997);
+        color: white;
+        border-left: 4px solid #1e7e34;
+    }
+    
+    .notification-error {
+        background: linear-gradient(135deg, #dc3545, #e83e8c);
+        color: white;
+        border-left: 4px solid #bd2130;
+    }
+    
+    .notification-warning {
+        background: linear-gradient(135deg, #ffc107, #fd7e14);
+        color: white;
+        border-left: 4px solid #d39e00;
+    }
+</style>
+
 </head>
 <body>
     <div class="loading">
@@ -212,37 +256,48 @@
         </div>
     </div>
 
-    <!-- ✅ MODAL CLIENTE -->
-    <div class="modal fade" id="modalCliente" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="modalClienteTitle">Novo Cliente</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="formCliente">
-                        <div class="mb-3">
-                            <label class="form-label">CPF</label>
-                            <input type="text" class="form-control" id="cpf" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Nome Completo</label>
-                            <input type="text" class="form-control" id="nome" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Telefone</label>
-                            <input type="text" class="form-control" id="telefone" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Email</label>
-                            <input type="email" class="form-control" id="email">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Endereço</label>
-                            <textarea class="form-control" id="endereco" rows="3"></textarea>
-                        </div>
-                    </form>
+   <div class="modal-body">
+    <form id="formCliente">
+        <div class="mb-3">
+            <label for="cpf" class="form-label">
+                <i class="fas fa-id-card"></i> CPF *
+            </label>
+            <input type="text" class="form-control" id="cpf" placeholder="000.000.000-00" required>
+            <div class="form-text">CPF do cliente (obrigatório)</div>
+        </div>
+        
+        <div class="mb-3">
+            <label for="nome" class="form-label">
+                <i class="fas fa-user"></i> Nome Completo *
+            </label>
+            <input type="text" class="form-control" id="nome" placeholder="Digite o nome completo" required>
+            <div class="form-text">Nome completo do cliente</div>
+        </div>
+        
+        <div class="mb-3">
+            <label for="telefone" class="form-label">
+                <i class="fas fa-phone"></i> Telefone *
+            </label>
+            <input type="tel" class="form-control" id="telefone" placeholder="(00) 00000-0000" required>
+            <div class="form-text">Telefone para contato</div>
+        </div>
+        
+        <div class="mb-3">
+            <label for="email" class="form-label">
+                <i class="fas fa-envelope"></i> E-mail
+            </label>
+            <input type="email" class="form-control" id="email" placeholder="cliente@email.com">
+            <div class="form-text">E-mail opcional</div>
+        </div>
+        
+        <div class="mb-3">
+            <label for="endereco" class="form-label">
+                <i class="fas fa-map-marker-alt"></i> Endereço
+            </label>
+            <textarea class="form-control" id="endereco" rows="3" placeholder="Rua, número, bairro, cidade..."></textarea>
+            <div class="form-text">Endereço completo</div>
+        </div>
+    </form>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -347,5 +402,31 @@
         </div>
     </div>
 </div>
+
+<!-- Modal de Confirmação -->
+<div class="modal fade" id="confirmModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle"></i> Confirmar Exclusão
+                </h5>
+            </div>
+            <div class="modal-body">
+                <p id="confirmMessage">Tem certeza que deseja excluir este item?</p>
+                <p class="text-muted small"><strong>Atenção:</strong> Esta ação não pode ser desfeita.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="confirmNo">
+                    <i class="fas fa-times"></i> Cancelar
+                </button>
+                <button type="button" class="btn btn-danger" id="confirmYes">
+                    <i class="fas fa-trash"></i> Sim, Excluir
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 </body>
 </html>
