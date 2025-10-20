@@ -292,3 +292,139 @@ app.get('/api/debug-clientes', async (req, res) => {
         });
     }
 });
+
+// ✅ ROTA PARA CLIENTES (GET)
+app.get('/api/admin/clientes', async (req, res) => {
+    try {
+        if (!isDatabaseConnected) {
+            return res.status(503).json({ error: 'Banco offline' });
+        }
+        
+        const client = await pool.connect();
+        
+        // Verificar se a tabela existe
+        const tableCheck = await client.query(`
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name = 'clientes'
+            );
+        `);
+        
+        if (!tableCheck.rows[0].exists) {
+            client.release();
+            return res.json([]); // Retorna array vazio se tabela não existe
+        }
+        
+        // Buscar clientes
+        const result = await client.query('SELECT * FROM clientes ORDER BY nome');
+        client.release();
+        
+        res.json(result.rows);
+        
+    } catch (error) {
+        console.error('Erro ao buscar clientes:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ✅ ROTA PARA CRIAR CLIENTE (POST)
+app.post('/api/admin/clientes', async (req, res) => {
+    try {
+        if (!isDatabaseConnected) {
+            return res.status(503).json({ error: 'Banco offline' });
+        }
+        
+        const { cpf, nome, email, telefone, endereco } = req.body;
+        
+        if (!cpf || !nome || !telefone) {
+            return res.status(400).json({ error: 'CPF, nome e telefone são obrigatórios' });
+        }
+        
+        const client = await pool.connect();
+        
+        // Criar tabela se não existir
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS clientes (
+                cpf VARCHAR(14) PRIMARY KEY,
+                nome VARCHAR(100) NOT NULL,
+                email VARCHAR(100),
+                telefone VARCHAR(20) NOT NULL,
+                endereco TEXT,
+                data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        
+        // Inserir cliente
+        const result = await client.query(
+            'INSERT INTO clientes (cpf, nome, email, telefone, endereco) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+            [cpf, nome, email, telefone, endereco]
+        );
+        
+        client.release();
+        
+        res.json({ 
+            success: true,
+            message: 'Cliente cadastrado com sucesso!',
+            cliente: result.rows[0]
+        });
+        
+    } catch (error) {
+        console.error('Erro ao salvar cliente:', error);
+        
+        if (error.code === '23505') { // CPF duplicado
+            res.status(400).json({ error: 'CPF já cadastrado' });
+        } else {
+            res.status(500).json({ error: error.message });
+        }
+    }
+});
+
+// ✅ ROTA PARA EMPRÉSTIMOS (GET)
+app.get('/api/admin/emprestimos', async (req, res) => {
+    try {
+        if (!isDatabaseConnected) {
+            return res.status(503).json({ error: 'Banco offline' });
+        }
+        
+        // Por enquanto retorna vazio - você pode implementar depois
+        res.json([]);
+        
+    } catch (error) {
+        console.error('Erro ao buscar empréstimos:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ✅ ROTA PARA CRIAR TABELA CLIENTES (SE PRECISAR)
+app.post('/api/admin/criar-tabela-clientes', async (req, res) => {
+    try {
+        if (!isDatabaseConnected) {
+            return res.status(503).json({ error: 'Banco offline' });
+        }
+        
+        const client = await pool.connect();
+        
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS clientes (
+                cpf VARCHAR(14) PRIMARY KEY,
+                nome VARCHAR(100) NOT NULL,
+                email VARCHAR(100),
+                telefone VARCHAR(20) NOT NULL,
+                endereco TEXT,
+                data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        
+        client.release();
+        
+        res.json({ 
+            success: true,
+            message: 'Tabela clientes criada/verificada com sucesso!'
+        });
+        
+    } catch (error) {
+        console.error('Erro ao criar tabela:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
