@@ -17,51 +17,48 @@
             color: #FFD700; 
         }
         .hidden { display: none; }
+
+        /* NOTIFICAÇÕES PERSONALIZADAS */
+        .custom-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            min-width: 300px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            animation: slideInRight 0.3s ease-out;
+        }
+        
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        .notification-success {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            border-left: 4px solid #1e7e34;
+        }
+        
+        .notification-error {
+            background: linear-gradient(135deg, #dc3545, #e83e8c);
+            color: white;
+            border-left: 4px solid #bd2130;
+        }
+        
+        .notification-warning {
+            background: linear-gradient(135deg, #ffc107, #fd7e14);
+            color: white;
+            border-left: 4px solid #d39e00;
+        }
     </style>
-
-<style>
-    /* NOTIFICAÇÕES PERSONALIZADAS */
-    .custom-notification {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        z-index: 9999;
-        min-width: 300px;
-        border-radius: 10px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        animation: slideInRight 0.3s ease-out;
-    }
-    
-    @keyframes slideInRight {
-        from {
-            transform: translateX(100%);
-            opacity: 0;
-        }
-        to {
-            transform: translateX(0);
-            opacity: 1;
-        }
-    }
-    
-    .notification-success {
-        background: linear-gradient(135deg, #28a745, #20c997);
-        color: white;
-        border-left: 4px solid #1e7e34;
-    }
-    
-    .notification-error {
-        background: linear-gradient(135deg, #dc3545, #e83e8c);
-        color: white;
-        border-left: 4px solid #bd2130;
-    }
-    
-    .notification-warning {
-        background: linear-gradient(135deg, #ffc107, #fd7e14);
-        color: white;
-        border-left: 4px solid #d39e00;
-    }
-</style>
-
 </head>
 <body>
     <div class="loading">
@@ -205,6 +202,7 @@
                                         <th>Parcelas</th>
                                         <th>Data</th>
                                         <th>Status</th>
+                                        <th>Taxa Juros</th>
                                         <th>Ações</th>
                                     </tr>
                                 </thead>
@@ -256,52 +254,156 @@
         </div>
     </div>
 
-   <div class="modal-body">
-    <form id="formCliente">
-        <div class="mb-3">
-            <label for="cpf" class="form-label">
-                <i class="fas fa-id-card"></i> CPF *
-            </label>
-            <input type="text" class="form-control" id="cpf" placeholder="000.000.000-00" required>
-            <div class="form-text">CPF do cliente (obrigatório)</div>
-        </div>
-        
-        <div class="mb-3">
-            <label for="nome" class="form-label">
-                <i class="fas fa-user"></i> Nome Completo *
-            </label>
-            <input type="text" class="form-control" id="nome" placeholder="Digite o nome completo" required>
-            <div class="form-text">Nome completo do cliente</div>
-        </div>
-        
-        <div class="mb-3">
-            <label for="telefone" class="form-label">
-                <i class="fas fa-phone"></i> Telefone *
-            </label>
-            <input type="tel" class="form-control" id="telefone" placeholder="(00) 00000-0000" required>
-            <div class="form-text">Telefone para contato</div>
-        </div>
-        
-        <div class="mb-3">
-            <label for="email" class="form-label">
-                <i class="fas fa-envelope"></i> E-mail
-            </label>
-            <input type="email" class="form-control" id="email" placeholder="cliente@email.com">
-            <div class="form-text">E-mail opcional</div>
-        </div>
-        
-        <div class="mb-3">
-            <label for="endereco" class="form-label">
-                <i class="fas fa-map-marker-alt"></i> Endereço
-            </label>
-            <textarea class="form-control" id="endereco" rows="3" placeholder="Rua, número, bairro, cidade..."></textarea>
-            <div class="form-text">Endereço completo</div>
-        </div>
-    </form>
+    <!-- ✅ MODAIS NO FINAL DO BODY -->
+
+    <!-- Modal Empréstimo -->
+    <div class="modal fade" id="modalEmprestimo" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalEmprestimoTitle">Novo Empréstimo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formEmprestimo">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Cliente *</label>
+                                <select class="form-select" id="clienteSelect" required>
+                                    <option value="">Carregando clientes...</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Valor Total *</label>
+                                <input type="number" class="form-control" id="valorTotal" 
+                                       step="0.01" min="0" required 
+                                       onchange="calcularParcelas()">
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Número de Parcelas *</label>
+                                <input type="number" class="form-control" id="numeroParcelas" 
+                                       min="1" max="60" value="12" required
+                                       onchange="calcularParcelas()">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Taxa de Juros (% ao mês)</label>
+                                <input type="number" class="form-control" id="taxaJuros" 
+                                       step="0.01" min="0" value="2.5">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Valor da Parcela</label>
+                                <input type="text" class="form-control" id="valorParcela" readonly>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Datas de Vencimento (aproximadas)</label>
+                            <div id="datasVencimento" class="border rounded p-3 bg-light">
+                                <p class="text-muted small mb-0">As datas serão calculadas automaticamente</p>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Observações</label>
+                            <textarea class="form-control" id="observacoesEmprestimo" rows="3" 
+                                      placeholder="Observações sobre o empréstimo..."></textarea>
+                        </div>
+                    </form>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" onclick="salvarCliente()">Salvar Cliente</button>
+                    <button type="button" class="btn btn-primary" onclick="salvarEmprestimo()">
+                        <i class="fas fa-save"></i> Salvar Empréstimo
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Cliente -->
+    <div class="modal fade" id="modalCliente" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalClienteTitle">Novo Cliente</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formCliente">
+                        <div class="mb-3">
+                            <label for="cpf" class="form-label">
+                                <i class="fas fa-id-card"></i> CPF *
+                            </label>
+                            <input type="text" class="form-control" id="cpf" placeholder="000.000.000-00" required>
+                            <div class="form-text">CPF do cliente (obrigatório)</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="nome" class="form-label">
+                                <i class="fas fa-user"></i> Nome Completo *
+                            </label>
+                            <input type="text" class="form-control" id="nome" placeholder="Digite o nome completo" required>
+                            <div class="form-text">Nome completo do cliente</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="telefone" class="form-label">
+                                <i class="fas fa-phone"></i> Telefone *
+                            </label>
+                            <input type="tel" class="form-control" id="telefone" placeholder="(00) 00000-0000" required>
+                            <div class="form-text">Telefone para contato</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="email" class="form-label">
+                                <i class="fas fa-envelope"></i> E-mail
+                            </label>
+                            <input type="email" class="form-control" id="email" placeholder="cliente@email.com">
+                            <div class="form-text">E-mail opcional</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="endereco" class="form-label">
+                                <i class="fas fa-map-marker-alt"></i> Endereço
+                            </label>
+                            <textarea class="form-control" id="endereco" rows="3" placeholder="Rua, número, bairro, cidade..."></textarea>
+                            <div class="form-text">Endereço completo</div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="salvarCliente()">
+                        <i class="fas fa-save"></i> Salvar Cliente
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmação -->
+    <div class="modal fade" id="confirmModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title">
+                        <i class="fas fa-exclamation-triangle"></i> Confirmar Exclusão
+                    </h5>
+                </div>
+                <div class="modal-body">
+                    <p id="confirmMessage">Tem certeza que deseja excluir este item?</p>
+                    <p class="text-muted small"><strong>Atenção:</strong> Esta ação não pode ser desfeita.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="confirmNo">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                    <button type="button" class="btn btn-danger" id="confirmYes">
+                        <i class="fas fa-trash"></i> Sim, Excluir
+                    </button>
                 </div>
             </div>
         </div>
@@ -336,153 +438,5 @@
             }
         }, 1000);      
     </script>
-    <!-- ✅ MODAL EMPRÉSTIMO - DEVE ESTAR NO FINAL DO BODY -->
-<div class="modal fade" id="modalEmprestimo" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalEmprestimoTitle">Novo Empréstimo</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <form id="formEmprestimo">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Cliente *</label>
-                            <select class="form-select" id="clienteSelect" required>
-                                <option value="">Carregando clientes...</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Valor Total *</label>
-                            <input type="number" class="form-control" id="valorTotal" 
-                                   step="0.01" min="0" required 
-                                   onchange="calcularParcelas()">
-                        </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Número de Parcelas *</label>
-                            <input type="number" class="form-control" id="numeroParcelas" 
-                                   min="1" max="60" value="12" required
-                                   onchange="calcularParcelas()">
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Taxa de Juros (% ao mês)</label>
-                            <input type="number" class="form-control" id="taxaJuros" 
-                                   step="0.01" min="0" value="2.5">
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Valor da Parcela</label>
-                            <input type="text" class="form-control" id="valorParcela" readonly>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Datas de Vencimento (aproximadas)</label>
-                        <div id="datasVencimento" class="border rounded p-3 bg-light">
-                            <p class="text-muted small mb-0">As datas serão calculadas automaticamente</p>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Observações</label>
-                        <textarea class="form-control" id="observacoesEmprestimo" rows="3" 
-                                  placeholder="Observações sobre o empréstimo..."></textarea>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" onclick="salvarEmprestimo()">
-                    <i class="fas fa-save"></i> Salvar Empréstimo
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal Cliente -->
-<div class="modal fade" id="modalCliente" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalClienteTitle">Novo Cliente</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="formCliente">
-                    <div class="mb-3">
-                        <label for="cpf" class="form-label">
-                            <i class="fas fa-id-card"></i> CPF *
-                        </label>
-                        <input type="text" class="form-control" id="cpf" placeholder="000.000.000-00" required>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="nome" class="form-label">
-                            <i class="fas fa-user"></i> Nome Completo *
-                        </label>
-                        <input type="text" class="form-control" id="nome" placeholder="Digite o nome completo" required>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="telefone" class="form-label">
-                            <i class="fas fa-phone"></i> Telefone *
-                        </label>
-                        <input type="tel" class="form-control" id="telefone" placeholder="(00) 00000-0000" required>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="email" class="form-label">
-                            <i class="fas fa-envelope"></i> E-mail
-                        </label>
-                        <input type="email" class="form-control" id="email" placeholder="cliente@email.com">
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="endereco" class="form-label">
-                            <i class="fas fa-map-marker-alt"></i> Endereço
-                        </label>
-                        <textarea class="form-control" id="endereco" rows="3" placeholder="Rua, número, bairro, cidade..."></textarea>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" onclick="salvarCliente()">
-                    <i class="fas fa-save"></i> Salvar Cliente
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal de Confirmação -->
-<div class="modal fade" id="confirmModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-warning text-dark">
-                <h5 class="modal-title">
-                    <i class="fas fa-exclamation-triangle"></i> Confirmar Exclusão
-                </h5>
-            </div>
-            <div class="modal-body">
-                <p id="confirmMessage">Tem certeza que deseja excluir este item?</p>
-                <p class="text-muted small"><strong>Atenção:</strong> Esta ação não pode ser desfeita.</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" id="confirmNo">
-                    <i class="fas fa-times"></i> Cancelar
-                </button>
-                <button type="button" class="btn btn-danger" id="confirmYes">
-                    <i class="fas fa-trash"></i> Sim, Excluir
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
 </body>
 </html>
