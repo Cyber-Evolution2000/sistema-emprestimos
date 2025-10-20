@@ -673,3 +673,92 @@ app.get('/api/admin/debug-emprestimos', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+
+// ✅ ROTA PUT PARA ATUALIZAR CLIENTE
+app.put('/api/admin/clientes/:cpf', async (req, res) => {
+    try {
+        if (!isDatabaseConnected) {
+            return res.status(503).json({ error: 'Banco offline' });
+        }
+        
+        const { cpf } = req.params;
+        const { nome, email, telefone, endereco } = req.body;
+        
+        if (!nome || !telefone) {
+            return res.status(400).json({ error: 'Nome e telefone são obrigatórios' });
+        }
+        
+        const client = await pool.connect();
+        
+        const result = await client.query(
+            'UPDATE clientes SET nome = $1, email = $2, telefone = $3, endereco = $4 WHERE cpf = $5 RETURNING *',
+            [nome, email, telefone, endereco, cpf]
+        );
+        
+        client.release();
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Cliente não encontrado' });
+        }
+        
+        res.json({ 
+            success: true,
+            message: 'Cliente atualizado com sucesso!',
+            cliente: result.rows[0]
+        });
+        
+    } catch (error) {
+        console.error('Erro ao atualizar cliente:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ✅ ROTA DELETE PARA EXCLUIR CLIENTE
+app.delete('/api/admin/clientes/:cpf', async (req, res) => {
+    try {
+        if (!isDatabaseConnected) {
+            return res.status(503).json({ error: 'Banco offline' });
+        }
+        
+        const { cpf } = req.params;
+        const client = await pool.connect();
+        
+        // Verificar se cliente existe
+        const clienteCheck = await client.query(
+            'SELECT * FROM clientes WHERE cpf = $1',
+            [cpf]
+        );
+        
+        if (clienteCheck.rows.length === 0) {
+            client.release();
+            return res.status(404).json({ error: 'Cliente não encontrado' });
+        }
+        
+        // Verificar se tem empréstimos
+        const emprestimosCheck = await client.query(
+            'SELECT COUNT(*) FROM emprestimos WHERE cliente_cpf = $1',
+            [cpf]
+        );
+        
+        const totalEmprestimos = parseInt(emprestimosCheck.rows[0].count);
+        if (totalEmprestimos > 0) {
+            client.release();
+            return res.status(400).json({ 
+                error: `Cliente possui ${totalEmprestimos} empréstimo(s) ativo(s). Exclua os empréstimos primeiro.`
+            });
+        }
+        
+        // Excluir cliente
+        await client.query('DELETE FROM clientes WHERE cpf = $1', [cpf]);
+        client.release();
+        
+        res.json({ 
+            success: true,
+            message: 'Cliente excluído com sucesso!'
+        });
+        
+    } catch (error) {
+        console.error('Erro ao excluir cliente:', error);
+        res.status(500).json({ error: error.message });
+    }
+});

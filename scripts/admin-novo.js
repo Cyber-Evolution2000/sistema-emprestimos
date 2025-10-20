@@ -537,3 +537,167 @@ function abrirModalEmprestimo() {
         alert('Erro ao abrir formulário: ' + error.message);
     }
 }
+
+// ✅ EDITAR CLIENTE - FUNÇÃO COMPLETA
+async function editarCliente(cpf) {
+    try {
+        console.log('📝 Editando cliente:', cpf);
+        
+        // Buscar dados do cliente
+        const response = await fetch('/api/admin/clientes');
+        if (!response.ok) throw new Error('Falha ao buscar clientes');
+        
+        const clientes = await response.json();
+        const cliente = clientes.find(c => c.cpf === cpf);
+        
+        if (!cliente) {
+            alert('Cliente não encontrado!');
+            return;
+        }
+        
+        // Preencher modal com dados do cliente
+        document.getElementById('modalClienteTitle').textContent = 'Editar Cliente';
+        document.getElementById('cpf').value = cliente.cpf;
+        document.getElementById('nome').value = cliente.nome;
+        document.getElementById('email').value = cliente.email || '';
+        document.getElementById('telefone').value = cliente.telefone || '';
+        document.getElementById('endereco').value = cliente.endereco || '';
+        document.getElementById('cpf').readOnly = true; // CPF não pode ser editado
+        
+        // Mostrar modal
+        const modal = new bootstrap.Modal(document.getElementById('modalCliente'));
+        modal.show();
+        
+    } catch (error) {
+        console.error('❌ Erro ao editar cliente:', error);
+        alert('Erro ao carregar dados do cliente: ' + error.message);
+    }
+}
+
+// ✅ EXCLUIR CLIENTE - FUNÇÃO COMPLETA
+async function excluirCliente(cpf) {
+    try {
+        // Verificar se o cliente tem empréstimos
+        const emprestimosResponse = await fetch('/api/admin/emprestimos');
+        if (emprestimosResponse.ok) {
+            const emprestimos = await emprestimosResponse.json();
+            const emprestimosCliente = emprestimos.filter(e => e.cliente_cpf === cpf);
+            
+            if (emprestimosCliente.length > 0) {
+                alert(`❌ Não é possível excluir este cliente!\n\nEle possui ${emprestimosCliente.length} empréstimo(s) ativo(s).\n\nExclua os empréstimos primeiro.`);
+                return;
+            }
+        }
+        
+        // Confirmação de exclusão
+        if (!confirm(`Tem certeza que deseja excluir o cliente ${cpf}?\n\nEsta ação não pode ser desfeita!`)) {
+            return;
+        }
+        
+        console.log('🗑️ Excluindo cliente:', cpf);
+        
+        // ✅ PRECISAMOS CRIAR ESTA ROTA NO SERVER.JS
+        const response = await fetch(`/api/admin/clientes/${cpf}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+            if (response.status === 404) {
+                throw new Error('Cliente não encontrado');
+            }
+            throw new Error(`Erro ${response.status}: ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        alert('✅ ' + result.message);
+        carregarClientes(); // Recarregar lista
+        
+    } catch (error) {
+        console.error('❌ Erro ao excluir cliente:', error);
+        
+        if (error.message.includes('404')) {
+            alert('❌ Cliente não encontrado!');
+        } else if (error.message.includes('empréstimos')) {
+            alert('❌ ' + error.message);
+        } else {
+            alert('❌ Erro ao excluir cliente: ' + error.message);
+        }
+    }
+}
+
+// ✅ ATUALIZAR FUNÇÃO salvarCliente PARA SUPORTAR EDIÇÃO
+async function salvarCliente() {
+    try {
+        const cpf = document.getElementById('cpf').value;
+        const nome = document.getElementById('nome').value;
+        const email = document.getElementById('email').value;
+        const telefone = document.getElementById('telefone').value;
+        const endereco = document.getElementById('endereco').value;
+        const isEditing = document.getElementById('cpf').readOnly;
+
+        if (!cpf || !nome || !telefone) {
+            alert('Por favor, preencha CPF, nome e telefone.');
+            return;
+        }
+
+        const clienteData = {
+            cpf: cpf,
+            nome: nome,
+            email: email,
+            telefone: telefone,
+            endereco: endereco
+        };
+
+        let response;
+        
+        if (isEditing) {
+            // ✅ MODO EDIÇÃO - PRECISAMOS CRIAR ESTA ROTA NO SERVER.JS
+            console.log('✏️ Atualizando cliente existente...');
+            response = await fetch(`/api/admin/clientes/${cpf}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(clienteData)
+            });
+        } else {
+            // ✅ MODO NOVO CLIENTE
+            console.log('💾 Criando novo cliente...');
+            response = await fetch('/api/admin/clientes', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(clienteData)
+            });
+        }
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Falha ao salvar: ${response.status} - ${errorText}`);
+        }
+
+        const result = await response.json();
+        console.log('✅ Cliente salvo:', result);
+        
+        bootstrap.Modal.getInstance(document.getElementById('modalCliente')).hide();
+        alert('✅ ' + result.message);
+        carregarClientes();
+        
+    } catch (error) {
+        console.error('💥 Erro ao salvar cliente:', error);
+        alert('💥 Erro ao salvar cliente: ' + error.message);
+    }
+}
+
+// ✅ FUNÇÃO AUXILIAR - ABRIR MODAL PARA NOVO CLIENTE
+function abrirModalCliente() {
+    const modal = new bootstrap.Modal(document.getElementById('modalCliente'));
+    const form = document.getElementById('formCliente');
+    
+    form.reset();
+    document.getElementById('modalClienteTitle').textContent = 'Novo Cliente';
+    document.getElementById('cpf').readOnly = false; // Permitir digitar CPF
+    
+    modal.show();
+}
