@@ -470,8 +470,14 @@ function atualizarDashboard() {
     document.getElementById('totalAtrasados').textContent = '0';
 }
 
-// ✅ EDITAR CLIENTE - FUNÇÃO CORRIGIDA
+// ✅ EDITAR CLIENTE - COM VERIFICAÇÃO DE SEGURANÇA
 async function editarCliente(cpf) {
+    // ✅ VERIFICAÇÃO DE SEGURANÇA - garantir que temos um CPF válido
+    if (!cpf || cpf === 'undefined' || cpf === 'null') {
+        console.error('❌ CPF inválido para edição:', cpf);
+        return;
+    }
+    
     try {
         console.log('📝 Editando cliente:', cpf);
         
@@ -498,9 +504,7 @@ async function editarCliente(cpf) {
         const enderecoInput = document.getElementById('endereco');
         
         if (!modalTitle || !cpfInput || !nomeInput || !telefoneInput) {
-            console.error('❌ Elementos do modal não encontrados:', {
-                modalTitle, cpfInput, nomeInput, telefoneInput
-            });
+            console.error('❌ Elementos do modal não encontrados');
             throw new Error('Elementos do formulário não encontrados');
         }
         
@@ -531,7 +535,6 @@ async function editarCliente(cpf) {
         showNotification('Erro ao carregar dados do cliente: ' + error.message, 'error');
     }
 }
-
 function excluirCliente(cpf) {
     alert('Exclusão em desenvolvimento para CPF: ' + cpf);
 }
@@ -957,3 +960,13 @@ async function excluirCliente(cpf) {
         }
     }
 }
+
+// ✅ DEBUG - ENCONTRAR CHAMADAS AUTOMÁTICAS
+console.log('🔍 Verificando chamadas automáticas...');
+
+// Sobrescrever a função temporariamente para debug
+const originalEditarCliente = window.editarCliente;
+window.editarCliente = function(cpf) {
+    console.log('🔄 editarCliente chamado com:', cpf, 'Stack:', new Error().stack);
+    return originalEditarCliente(cpf);
+};
