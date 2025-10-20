@@ -1,133 +1,176 @@
 const express = require('express');
 const { Pool } = require('pg');
+const path = require('path');
+
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// ✅ DIAGNÓSTICO COMPLETO
-console.log('=== 🩺 INICIANDO DIAGNÓSTICO DO BANCO ===');
-
-// Verificar se DATABASE_URL existe
-const hasDatabaseUrl = !!process.env.DATABASE_URL;
-console.log('1. DATABASE_URL configurada?:', hasDatabaseUrl ? '✅ SIM' : '❌ NÃO');
-
-if (hasDatabaseUrl) {
-  console.log('2. DATABASE_URL:', process.env.DATABASE_URL.substring(0, 50) + '...');
-} else {
-  console.log('❌ ERRO: DATABASE_URL não encontrada nas variáveis de ambiente');
-  console.log('💡 SOLUÇÃO: Configure DATABASE_URL no Render → Environment');
-}
+// ✅ DIAGNÓSTICO INICIAL
+console.log('=== 🩺 DIAGNÓSTICO DO SISTEMA ===');
+console.log('DATABASE_URL:', process.env.DATABASE_URL ? '✅ CONFIGURADA' : '❌ NÃO CONFIGURADA');
 
 let pool;
+let isDatabaseConnected = false;
 
-try {
-  if (hasDatabaseUrl) {
+// ✅ TENTAR CONECTAR COM BANCO
+async function conectarBanco() {
+  try {
+    if (!process.env.DATABASE_URL) {
+      console.log('❌ DATABASE_URL não encontrada');
+      return false;
+    }
+
     pool = new Pool({
       connectionString: process.env.DATABASE_URL,
       ssl: { rejectUnauthorized: false },
       connectionTimeoutMillis: 10000
     });
-    console.log('3. Pool criado: ✅ SUCESSO');
-  } else {
-    console.log('3. Pool criado: ❌ PULADO (sem DATABASE_URL)');
+
+    // Testar conexão
+    const client = await pool.connect();
+    await client.query('SELECT 1');
+    client.release();
+    
+    console.log('✅ Conectado ao PostgreSQL com sucesso!');
+    isDatabaseConnected = true;
+    return true;
+    
+  } catch (error) {
+    console.log('❌ Erro na conexão:', error.message);
+    isDatabaseConnected = false;
+    return false;
   }
-} catch (error) {
-  console.log('3. Pool criado: ❌ ERRO -', error.message);
 }
 
+// Middleware
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// ✅ ROTA DE DIAGNÓSTICO DETALHADO
+// ✅ ROTA DE DIAGNÓSTICO
 app.get('/api/debug', async (req, res) => {
-  const diagnostic = {
+  const debugInfo = {
+    system: 'Sistema de Empréstimos',
     timestamp: new Date().toISOString(),
-    hasDatabaseUrl: !!process.env.DATABASE_URL,
-    databaseUrlLength: process.env.DATABASE_URL ? process.env.DATABASE_URL.length : 0,
-    database: {}
+    environment: {
+      hasDatabaseUrl: !!process.env.DATABASE_URL,
+      databaseUrlLength: process.env.DATABASE_URL ? process.env.DATABASE_URL.length : 0,
+      nodeEnv: process.env.NODE_ENV || 'development'
+    },
+    database: {
+      connected: isDatabaseConnected,
+      poolInitialized: !!pool
+    }
   };
 
   try {
-    if (!pool) {
-      throw new Error('Pool não inicializado - DATABASE_URL provavelmente não configurada');
+    if (pool && isDatabaseConnected) {
+      const client = await pool.connect();
+      const timeResult = await client.query('SELECT NOW() as current_time');
+      debugInfo.database.currentTime = timeResult.rows[0].current_time;
+      client.release();
+    }
+  } catch (error) {
+    debugInfo.database.error = error.message;
+  }
+
+  res.json(debugInfo);
+});
+
+// ✅ HEALTH CHECK
+app.get('/api/health', async (req, res) => {
+  res.json({
+    status: isDatabaseConnected ? 'OK' : 'ERROR',
+    message: isDatabaseConnected ? 'Sistema operacional' : 'Banco de dados offline',
+    database: {
+      connected: isDatabaseConnected,
+      hasCredentials: !!process.env.DATABASE_URL
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ✅ ROTAS DA API
+app.get('/api/admin/clientes', async (req, res) => {
+  try {
+    if (!isDatabaseConnected) {
+      return res.status(503).json({ error: 'Banco de dados offline' });
     }
 
     const client = await pool.connect();
-    diagnostic.database.connection = '✅ CONECTADO';
-    
-    const timeResult = await client.query('SELECT NOW() as current_time');
-    diagnostic.database.currentTime = timeResult.rows[0].current_time;
-    
-    const versionResult = await client.query('SELECT version()');
-    diagnostic.database.version = versionResult.rows[0].version.split(',')[0];
-    
+    const result = await client.query('SELECT * FROM clientes ORDER BY nome');
     client.release();
     
-  } catch (error) {
-    diagnostic.database.connection = '❌ ERRO';
-    diagnostic.database.error = error.message;
-  }
-
-  res.json(diagnostic);
-});
-
-// ✅ HEALTH CHECK SIMPLES
-app.get('/api/health', async (req, res) => {
-  try {
-    if (!pool) {
-      throw new Error('DATABASE_URL não configurada');
-    }
-    
-    await pool.query('SELECT 1');
-    res.json({ 
-      status: 'OK', 
-      database: { connected: true },
-      message: '✅ Sistema operando normalmente'
-    });
-  } catch (error) {
-    res.json({ 
-      status: 'ERROR', 
-      database: { connected: false },
-      error: error.message
-    });
-  }
-});
-
-// ✅ ROTA CLIENTES (apenas se banco funcionar)
-app.get('/api/admin/clientes', async (req, res) => {
-  try {
-    if (!pool) throw new Error('Banco não configurado');
-    
-    const result = await pool.query('SELECT * FROM clientes ORDER BY nome');
     res.json(result.rows);
   } catch (error) {
-    res.status(503).json({ error: 'Banco offline: ' + error.message });
+    res.status(500).json({ error: 'Erro: ' + error.message });
   }
 });
 
 app.post('/api/admin/clientes', async (req, res) => {
   try {
-    if (!pool) throw new Error('Banco não configurado');
-    
+    if (!isDatabaseConnected) {
+      return res.status(503).json({ error: 'Banco de dados offline' });
+    }
+
     const { cpf, nome, telefone, email, endereco } = req.body;
-    const result = await pool.query(
+
+    if (!cpf || !nome || !telefone) {
+      return res.status(400).json({ error: 'CPF, nome e telefone são obrigatórios' });
+    }
+
+    const client = await pool.connect();
+    const result = await client.query(
       `INSERT INTO clientes (cpf, nome, telefone, email, endereco) 
        VALUES ($1, $2, $3, $4, $5) 
+       ON CONFLICT (cpf) DO UPDATE SET
+         nome = EXCLUDED.nome,
+         telefone = EXCLUDED.telefone,
+         email = EXCLUDED.email,
+         endereco = EXCLUDED.endereco
        RETURNING *`,
       [cpf, nome, telefone, email, endereco]
     );
-    
+    client.release();
+
     res.json({ 
       success: true, 
-      message: '✅ Cliente salvo no PostgreSQL!',
+      message: '✅ Cliente salvo no banco de dados!',
       cliente: result.rows[0]
     });
   } catch (error) {
-    res.status(503).json({ error: 'Erro no banco: ' + error.message });
+    res.status(500).json({ error: 'Erro: ' + error.message });
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`=== 🚀 Servidor rodando na porta ${PORT} ===`);
-  console.log(`=== 📊 Diagnóstico: https://sistema-emprestimos.onrender.com/api/debug ===`);
-  console.log(`=== ❤️  Health Check: https://sistema-emprestimos.onrender.com/api/health ===`);
+// ✅ ROTA ADMIN (IMPORTANTE!)
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'admin.html'));
+});
+
+// ✅ ROTA PRINCIPAL
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// ✅ QUALQUER OUTRA ROTA
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// ✅ INICIAR SERVIDOR
+app.listen(PORT, async () => {
+  console.log(`🚀 Servidor rodando na porta ${PORT}`);
+  console.log(`📊 Diagnóstico: https://sistema-emprestimos.onrender.com/api/debug`);
+  console.log(`❤️  Health: https://sistema-emprestimos.onrender.com/api/health`);
+  console.log(`👨‍💼 Admin: https://sistema-emprestimos.onrender.com/admin`);
+  
+  // Tentar conectar com banco
+  console.log('🔄 Conectando ao banco de dados...');
+  await conectarBanco();
+  
+  if (isDatabaseConnected) {
+    console.log('🎉 Sistema pronto para uso!');
+  } else {
+    console.log('⚠️  Sistema em modo limitado (banco offline)');
+  }
 });
