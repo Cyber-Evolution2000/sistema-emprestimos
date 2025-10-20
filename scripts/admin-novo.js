@@ -62,7 +62,7 @@ async function carregarClientes() {
     }
 }
 
-// ✅ FUNÇÃO CORRIGIDA - EXIBIR CLIENTES COM CONTAGEM DE EMPRÉSTIMOS
+// ✅ FUNÇÃO CORRIGIDA - EXIBIR CLIENTES SEM DUPLICAÇÃO
 async function exibirClientes(clientes) {
     const tbody = document.getElementById('tabelaClientes');
     tbody.innerHTML = '';
@@ -80,100 +80,52 @@ async function exibirClientes(clientes) {
         return;
     }
 
-    // Para cada cliente, buscar quantidade de empréstimos
-    for (const cliente of clientes) {
-        try {
-            // Buscar contagem de empréstimos diretamente da API
-            const response = await fetch(`/api/admin/emprestimos?cliente=${cliente.cpf}`);
-            let totalEmprestimos = 0;
-            
-            if (response.ok) {
-                const emprestimos = await response.json();
-                totalEmprestimos = emprestimos.length || 0;
-            }
-            
-            const row = `
-                <tr>
-                    <td>${cliente.cpf}</td>
-                    <td><strong>${cliente.nome}</strong></td>
-                    <td>${cliente.telefone || 'N/A'}</td>
-                    <td>${cliente.email || 'N/A'}</td>
-                    <td>
-                        <span class="badge ${totalEmprestimos > 0 ? 'bg-primary' : 'bg-secondary'}">
-                            ${totalEmprestimos}
-                        </span>
-                    </td>
-                    <td>
-                        <button class="btn btn-sm btn-warning" onclick="editarCliente('${cliente.cpf}')">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button class="btn btn-sm btn-danger" onclick="excluirCliente('${cliente.cpf}')">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </td>
-                </tr>
-            `;
-            tbody.innerHTML += row;
-            
-        } catch (error) {
-            console.error(`Erro ao buscar empréstimos do cliente ${cliente.cpf}:`, error);
-            
-            // Fallback: tentar contar manualmente
-            try {
-                const response = await fetch('/api/admin/emprestimos');
-                if (response.ok) {
-                    const todosEmprestimos = await response.json();
-                    const emprestimosCliente = todosEmprestimos.filter(e => e.cliente_cpf === cliente.cpf);
-                    const totalEmprestimos = emprestimosCliente.length;
-                    
-                    const row = `
-                        <tr>
-                            <td>${cliente.cpf}</td>
-                            <td><strong>${cliente.nome}</strong></td>
-                            <td>${cliente.telefone || 'N/A'}</td>
-                            <td>${cliente.email || 'N/A'}</td>
-                            <td>
-                                <span class="badge ${totalEmprestimos > 0 ? 'bg-primary' : 'bg-secondary'}">
-                                    ${totalEmprestimos}
-                                </span>
-                            </td>
-                            <td>
-                                <button class="btn btn-sm btn-warning" onclick="editarCliente('${cliente.cpf}')">
-                                    <i class="fas fa-edit"></i>
-                                </button>
-                                <button class="btn btn-sm btn-danger" onclick="excluirCliente('${cliente.cpf}')">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </td>
-                        </tr>
-                    `;
-                    tbody.innerHTML += row;
-                }
-            } catch (error2) {
-                // Último fallback: mostrar 0
-                const row = `
-                    <tr>
-                        <td>${cliente.cpf}</td>
-                        <td><strong>${cliente.nome}</strong></td>
-                        <td>${cliente.telefone || 'N/A'}</td>
-                        <td>${cliente.email || 'N/A'}</td>
-                        <td><span class="badge bg-secondary">0</span></td>
-                        <td>
-                            <button class="btn btn-sm btn-warning" onclick="editarCliente('${cliente.cpf}')">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button class="btn btn-sm btn-danger" onclick="excluirCliente('${cliente.cpf}')">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </td>
-                    </tr>
-                `;
-                tbody.innerHTML += row;
-            }
+    // ✅ BUSCAR TODOS OS EMPRÉSTIMOS UMA ÚNICA VEZ
+    let todosEmprestimos = [];
+    try {
+        const response = await fetch('/api/admin/emprestimos');
+        if (response.ok) {
+            todosEmprestimos = await response.json();
         }
+    } catch (error) {
+        console.error('Erro ao buscar empréstimos:', error);
     }
-}
 
+    // ✅ CONTAR EMPRÉSTIMOS POR CLIENTE
+    const contagemEmprestimos = {};
+    todosEmprestimos.forEach(emprestimo => {
+        const cpf = emprestimo.cliente_cpf;
+        contagemEmprestimos[cpf] = (contagemEmprestimos[cpf] || 0) + 1;
+    });
+
+    // ✅ EXIBIR CLIENTES COM CONTAGEM CORRETA
+    clientes.forEach(cliente => {
+        const totalEmprestimos = contagemEmprestimos[cliente.cpf] || 0;
+        
+        const row = `
+            <tr>
+                <td>${cliente.cpf}</td>
+                <td><strong>${cliente.nome}</strong></td>
+                <td>${cliente.telefone || 'N/A'}</td>
+                <td>${cliente.email || 'N/A'}</td>
+                <td>
+                    <span class="badge ${totalEmprestimos > 0 ? 'bg-primary' : 'bg-secondary'}">
+                        ${totalEmprestimos}
+                    </span>
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-warning" onclick="editarCliente('${cliente.cpf}')">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="excluirCliente('${cliente.cpf}')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+        tbody.innerHTML += row;
+    });
+}
 // ✅ SALVAR CLIENTE - BANCO APENAS
 async function salvarCliente() {
     try {
