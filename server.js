@@ -5,7 +5,7 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// ✅ CONFIGURAÇÃO SIMPLES
+// ✅ CONFIGURAÇÃO DO BANCO
 let pool;
 let isDatabaseConnected = false;
 
@@ -36,9 +36,13 @@ async function conectarBanco() {
     }
 }
 
-// Middleware
+// ✅ MIDDLEWARE
 app.use(express.json());
-app.use(express.static(__dirname)); // ✅ SERVIR ARQUIVOS ESTÁTICOS
+app.use(express.static(path.join(__dirname, 'public'))); // ✅ SERVIR ARQUIVOS ESTÁTICOS DA PASTA 'public'
+
+// ✅ CONFIGURAR EJS COMO TEMPLATE ENGINE
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
 
 // ✅ ROTAS DA API
 app.get('/api/health', async (req, res) => {
@@ -74,16 +78,48 @@ app.get('/api/admin/clientes', async (req, res) => {
     }
 });
 
-// ✅ ROTAS DE PÁGINAS (IMPORTANTE!)
+// ✅ ROTAS DE PÁGINAS (COM EJS)
 app.get('/admin', (req, res) => {
-    res.sendFile(path.join(__dirname, 'admin.html'));
+    res.render('admin/dashboard', { 
+        title: 'Dashboard Admin',
+        databaseStatus: isDatabaseConnected ? 'online' : 'offline'
+    });
 });
 
+app.get('/admin/loans', (req, res) => {
+    res.render('admin/loans', { 
+        title: 'Gerenciar Empréstimos',
+        databaseStatus: isDatabaseConnected ? 'online' : 'offline'
+    });
+});
+
+app.get('/admin/clients', (req, res) => {
+    res.render('admin/clients', { 
+        title: 'Gerenciar Clientes',
+        databaseStatus: isDatabaseConnected ? 'online' : 'offline'
+    });
+});
+
+app.get('/admin/payments', (req, res) => {
+    res.render('admin/payments', { 
+        title: 'Pagamentos',
+        databaseStatus: isDatabaseConnected ? 'online' : 'offline'
+    });
+});
+
+app.get('/admin/settings', (req, res) => {
+    res.render('admin/settings', { 
+        title: 'Configurações',
+        databaseStatus: isDatabaseConnected ? 'online' : 'offline'
+    });
+});
+
+// ✅ ROTA PRINCIPAL (OPCIONAL)
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    res.redirect('/admin'); // ou envie um arquivo HTML se preferir
 });
 
-// ✅ INICIAR
+// ✅ INICIAR SERVIDOR
 app.listen(PORT, async () => {
     console.log(`🚀 Servidor rodando: http://localhost:${PORT}`);
     console.log(`👨‍💼 Admin: http://localhost:${PORT}/admin`);
