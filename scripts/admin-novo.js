@@ -970,3 +970,322 @@ window.editarCliente = function(cpf) {
     console.log('🔄 editarCliente chamado com:', cpf, 'Stack:', new Error().stack);
     return originalEditarCliente(cpf);
 };
+
+// ✅ FUNÇÕES PARA EMPRÉSTIMOS
+
+// Array para armazenar os empréstimos (simulação de banco de dados)
+let emprestimos = JSON.parse(localStorage.getItem('emprestimos')) || [];
+
+// Função para carregar empréstimos na tabela
+function carregarEmprestimos() {
+    const tabela = document.getElementById('tabelaEmprestimos');
+    
+    if (emprestimos.length === 0) {
+        tabela.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center py-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Nenhum empréstimo cadastrado
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tabela.innerHTML = emprestimos.map(emp => `
+        <tr>
+            <td>#${emp.id}</td>
+            <td>${emp.clienteNome}</td>
+            <td>R$ ${emp.valorTotal.toFixed(2)}</td>
+            <td>${emp.numeroParcelas}x</td>
+            <td>${new Date(emp.dataEmprestimo).toLocaleDateString('pt-BR')}</td>
+            <td>
+                <span class="status-badge ${emp.status === 'ativo' ? 'badge-online' : 'badge-offline'}">
+                    ${emp.status === 'ativo' ? 'Ativo' : 'Finalizado'}
+                </span>
+            </td>
+            <td>${emp.taxaJuros}%</td>
+            <td>
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-secondary" onclick="visualizarEmprestimo(${emp.id})" title="Visualizar">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="confirmarExclusaoEmprestimo(${emp.id})" title="Excluir">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// Função para abrir modal de confirmação de exclusão
+function confirmarExclusaoEmprestimo(id) {
+    const emprestimo = emprestimos.find(emp => emp.id === id);
+    
+    if (!emprestimo) {
+        mostrarNotificacao('Empréstimo não encontrado!', 'error');
+        return;
+    }
+
+    // Configurar modal de confirmação
+    document.getElementById('confirmMessage').innerHTML = `
+        Tem certeza que deseja excluir o empréstimo <strong>#${emprestimo.id}</strong>
+        do cliente <strong>${emprestimo.clienteNome}</strong>?
+        <br><br>
+        <strong>Valor:</strong> R$ ${emprestimo.valorTotal.toFixed(2)}<br>
+        <strong>Parcelas:</strong> ${emprestimo.numeroParcelas}x
+    `;
+
+    const confirmModal = new bootstrap.Modal(document.getElementById('confirmModal'));
+    
+    // Remover event listeners anteriores
+    document.getElementById('confirmYes').onclick = null;
+    document.getElementById('confirmNo').onclick = null;
+    
+    // Adicionar novos event listeners
+    document.getElementById('confirmYes').onclick = function() {
+        excluirEmprestimo(id);
+        confirmModal.hide();
+    };
+    
+    document.getElementById('confirmNo').onclick = function() {
+        confirmModal.hide();
+    };
+    
+    confirmModal.show();
+}
+
+// Função para excluir empréstimo
+function excluirEmprestimo(id) {
+    try {
+        // Encontrar índice do empréstimo
+        const index = emprestimos.findIndex(emp => emp.id === id);
+        
+        if (index === -1) {
+            mostrarNotificacao('Empréstimo não encontrado!', 'error');
+            return;
+        }
+
+        const emprestimoExcluido = emprestimos[index];
+        
+        // Remover do array
+        emprestimos.splice(index, 1);
+        
+        // Salvar no localStorage
+        localStorage.setItem('emprestimos', JSON.stringify(emprestimos));
+        
+        // Recarregar tabela
+        carregarEmprestimos();
+        
+        // Atualizar dashboard
+        atualizarDashboard();
+        
+        // Mostrar notificação de sucesso
+        mostrarNotificacao(
+            `Empréstimo #${emprestimoExcluido.id} excluído com sucesso!`, 
+            'success'
+        );
+        
+        console.log(`Empréstimo #${id} excluído:`, emprestimoExcluido);
+        
+    } catch (error) {
+        console.error('Erro ao excluir empréstimo:', error);
+        mostrarNotificacao('Erro ao excluir empréstimo!', 'error');
+    }
+}
+
+// Função para visualizar empréstimo (placeholder)
+function visualizarEmprestimo(id) {
+    const emprestimo = emprestimos.find(emp => emp.id === id);
+    
+    if (emprestimo) {
+        mostrarNotificacao(
+            `Visualizando empréstimo #${emprestimo.id} - ${emprestimo.clienteNome}`, 
+            'info'
+        );
+        // Aqui você pode implementar a visualização detalhada
+        console.log('Visualizar empréstimo:', emprestimo);
+    }
+}
+
+// Função para salvar novo empréstimo (atualizada)
+function salvarEmprestimo() {
+    try {
+        const clienteSelect = document.getElementById('clienteSelect');
+        const valorTotal = parseFloat(document.getElementById('valorTotal').value);
+        const numeroParcelas = parseInt(document.getElementById('numeroParcelas').value);
+        const taxaJuros = parseFloat(document.getElementById('taxaJuros').value);
+        const observacoes = document.getElementById('observacoesEmprestimo').value;
+
+        // Validações
+        if (!clienteSelect.value || isNaN(valorTotal) || valorTotal <= 0) {
+            mostrarNotificacao('Preencha todos os campos obrigatórios!', 'error');
+            return;
+        }
+
+        // Gerar ID único
+        const novoId = emprestimos.length > 0 ? Math.max(...emprestimos.map(emp => emp.id)) + 1 : 1;
+
+        // Criar novo empréstimo
+        const novoEmprestimo = {
+            id: novoId,
+            clienteId: clienteSelect.value,
+            clienteNome: clienteSelect.options[clienteSelect.selectedIndex].text,
+            valorTotal: valorTotal,
+            numeroParcelas: numeroParcelas,
+            taxaJuros: taxaJuros,
+            valorParcela: calcularValorParcela(valorTotal, numeroParcelas, taxaJuros),
+            dataEmprestimo: new Date().toISOString(),
+            status: 'ativo',
+            observacoes: observacoes,
+            parcelas: gerarParcelas(valorTotal, numeroParcelas, taxaJuros)
+        };
+
+        // Adicionar ao array
+        emprestimos.push(novoEmprestimo);
+        
+        // Salvar no localStorage
+        localStorage.setItem('emprestimos', JSON.stringify(emprestimos));
+        
+        // Fechar modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('modalEmprestimo'));
+        modal.hide();
+        
+        // Recarregar tabela
+        carregarEmprestimos();
+        
+        // Atualizar dashboard
+        atualizarDashboard();
+        
+        // Mostrar notificação
+        mostrarNotificacao('Empréstimo salvo com sucesso!', 'success');
+        
+        // Limpar formulário
+        document.getElementById('formEmprestimo').reset();
+        
+    } catch (error) {
+        console.error('Erro ao salvar empréstimo:', error);
+        mostrarNotificacao('Erro ao salvar empréstimo!', 'error');
+    }
+}
+
+// Função auxiliar para calcular valor da parcela
+function calcularValorParcela(valorTotal, parcelas, taxaJuros) {
+    if (taxaJuros === 0) {
+        return valorTotal / parcelas;
+    }
+    
+    const taxaDecimal = taxaJuros / 100;
+    const valorParcela = valorTotal * (taxaDecimal * Math.pow(1 + taxaDecimal, parcelas)) / 
+                        (Math.pow(1 + taxaDecimal, parcelas) - 1);
+    
+    return valorParcela;
+}
+
+// Função para gerar parcelas
+function gerarParcelas(valorTotal, numeroParcelas, taxaJuros) {
+    const valorParcela = calcularValorParcela(valorTotal, numeroParcelas, taxaJuros);
+    const parcelas = [];
+    const dataBase = new Date();
+    
+    for (let i = 1; i <= numeroParcelas; i++) {
+        const dataVencimento = new Date(dataBase);
+        dataVencimento.setMonth(dataVencimento.getMonth() + i);
+        
+        parcelas.push({
+            numero: i,
+            valor: valorParcela,
+            dataVencimento: dataVencimento.toISOString(),
+            status: 'pendente',
+            dataPagamento: null
+        });
+    }
+    
+    return parcelas;
+}
+
+// Função para carregar clientes no select (se necessário)
+function carregarClientesSelect() {
+    const clientes = JSON.parse(localStorage.getItem('clientes')) || [];
+    const select = document.getElementById('clienteSelect');
+    
+    select.innerHTML = '<option value="">Selecione um cliente</option>';
+    
+    clientes.forEach(cliente => {
+        const option = document.createElement('option');
+        option.value = cliente.id;
+        option.textContent = `${cliente.nome} (${cliente.cpf})`;
+        select.appendChild(option);
+    });
+}
+
+// ✅ ATUALIZAR A FUNÇÃO showSection PARA CARREGAR EMPRÉSTIMOS
+// Adicione esta linha na função showSection quando a seção de empréstimos for mostrada:
+
+function showSection(sectionId, event) {
+    // ... código existente ...
+    
+    if (sectionId === 'emprestimos') {
+        carregarEmprestimos();
+        carregarClientesSelect(); // Carrega clientes no select do modal
+    }
+    
+    // ... resto do código ...
+}
+
+// ✅ ATUALIZAR A FUNÇÃO atualizarDashboard
+function atualizarDashboard() {
+    const totalEmprestimos = emprestimos.length;
+    const emprestimosAtivos = emprestimos.filter(emp => emp.status === 'ativo').length;
+    
+    document.getElementById('totalEmprestimos').textContent = totalEmprestimos;
+    // Atualize outros dados do dashboard conforme necessário
+}
+
+// ✅ FUNÇÃO PARA MOSTRAR NOTIFICAÇÕES
+function mostrarNotificacao(mensagem, tipo = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `custom-notification notification-${tipo}`;
+    notification.innerHTML = `
+        <div class="p-3">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-${getNotificationIcon(tipo)} me-3"></i>
+                <div class="flex-grow-1">
+                    <strong>${getNotificationTitle(tipo)}</strong>
+                    <div class="small">${mensagem}</div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" onclick="this.parentElement.parentElement.parentElement.remove()"></button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Remover automaticamente após 5 segundos
+    setTimeout(() => {
+        if (notification.parentElement) {
+            notification.remove();
+        }
+    }, 5000);
+}
+
+function getNotificationIcon(tipo) {
+    const icons = {
+        'success': 'check-circle',
+        'error': 'exclamation-circle',
+        'warning': 'exclamation-triangle',
+        'info': 'info-circle'
+    };
+    return icons[tipo] || 'info-circle';
+}
+
+function getNotificationTitle(tipo) {
+    const titles = {
+        'success': 'Sucesso!',
+        'error': 'Erro!',
+        'warning': 'Atenção!',
+        'info': 'Informação'
+    };
+    return titles[tipo] || 'Informação';
+}
