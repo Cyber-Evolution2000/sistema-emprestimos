@@ -58,6 +58,65 @@
             color: white;
             border-left: 4px solid #d39e00;
         }
+
+/* ✅ ESTILOS PARA O DASHBOARD - NÚMEROS BRANCOS E GRANDES */
+    .status-card .status-badge {
+        background: linear-gradient(135deg, #FFD700 0%, #D4AF37 100%) !important;
+        color: #000000 !important;
+        font-size: 1.8rem !important;
+        font-weight: 800 !important;
+        padding: 1.2rem 1.8rem !important;
+        border-radius: 15px !important;
+        min-width: 100px;
+        text-align: center;
+        border: 3px solid #B8860B;
+        box-shadow: 0 5px 20px rgba(255, 215, 0, 0.4);
+        display: inline-block;
+        transition: all 0.3s ease;
+    }
+
+    .status-card:hover .status-badge {
+        transform: scale(1.08);
+        box-shadow: 0 8px 25px rgba(255, 215, 0, 0.6);
+    }
+
+    .status-card h3 {
+        color: #FFFFFF !important;
+        font-size: 1.5rem !important;
+        font-weight: 700 !important;
+        margin-bottom: 1rem !important;
+    }
+
+    .status-card p {
+        color: #CCCCCC !important;
+        font-size: 1.1rem !important;
+        margin-bottom: 1.8rem !important;
+        font-weight: 500;
+    }
+
+    .status-icon {
+        font-size: 3.5rem !important;
+        margin-bottom: 1.8rem !important;
+        color: #FFD700 !important;
+        text-shadow: 0 3px 15px rgba(255, 215, 0, 0.4);
+    }
+
+    /* Mobile */
+    @media (max-width: 768px) {
+        .status-card .status-badge {
+            font-size: 1.5rem !important;
+            padding: 1rem 1.5rem !important;
+        }
+        
+        .status-card h3 {
+            font-size: 1.3rem !important;
+        }
+        
+        .status-icon {
+            font-size: 3rem !important;
+        }
+    }
+        
     </style>
 </head>
 <body>
