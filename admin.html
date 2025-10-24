@@ -6,17 +6,547 @@
     <title>Admin - Sistema de Empréstimos</title>
     
     <!-- ✅ CSS -->
-    <link rel="stylesheet" href="/css/admin.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     
     <style>
-        .loading { 
-            padding: 20px; 
-            text-align: center; 
-            color: #FFD700; 
+        /* ===== VARIÁVEIS DE CORES ===== */
+        :root {
+          --gold-primary: #FFD700;
+          --gold-secondary: #D4AF37;
+          --gold-dark: #B8860B;
+          --gold-light: #FFF8DC;
+          --black-primary: #000000;
+          --black-secondary: #1A1A1A;
+          --black-light: #2D2D2D;
+          --text-light: #FFFFFF;
+          --text-gray: #CCCCCC;
+          --success: #28A745;
+          --warning: #FFC107;
+          --danger: #DC3545;
+          --info: #17A2B8;
         }
-        .hidden { display: none; }
+
+        /* ===== RESET E BASE ===== */
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+
+        body {
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          background: linear-gradient(135deg, var(--black-primary) 0%, var(--black-secondary) 100%);
+          color: var(--text-light);
+          min-height: 100vh;
+          line-height: 1.6;
+        }
+
+        /* ===== LAYOUT PRINCIPAL ===== */
+        .admin-container {
+          display: flex;
+          min-height: 100vh;
+        }
+
+        /* ===== SIDEBAR ===== */
+        .sidebar {
+          width: 280px;
+          background: var(--black-secondary);
+          border-right: 2px solid var(--gold-primary);
+          padding: 2rem 0;
+          position: fixed;
+          height: 100vh;
+          overflow-y: auto;
+          z-index: 1000;
+          transition: transform 0.3s ease;
+        }
+
+        .logo {
+          text-align: center;
+          padding: 0 2rem 2rem;
+          border-bottom: 1px solid var(--gold-dark);
+          margin-bottom: 2rem;
+        }
+
+        .logo h1 {
+          color: var(--gold-primary);
+          font-size: 1.8rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 2px;
+        }
+
+        .logo .subtitle {
+          color: var(--text-gray);
+          font-size: 0.9rem;
+          margin-top: 0.5rem;
+        }
+
+        .nav-menu {
+          list-style: none;
+          padding: 0 1.5rem;
+        }
+
+        .nav-item {
+          margin-bottom: 0.5rem;
+        }
+
+        .nav-link {
+          display: flex;
+          align-items: center;
+          padding: 1rem 1.5rem;
+          color: var(--text-gray);
+          text-decoration: none;
+          border-radius: 8px;
+          transition: all 0.3s ease;
+          font-weight: 500;
+        }
+
+        .nav-link:hover {
+          background: var(--black-light);
+          color: var(--gold-primary);
+          transform: translateX(5px);
+        }
+
+        .nav-link.active {
+          background: linear-gradient(135deg, var(--gold-primary) 0%, var(--gold-dark) 100%);
+          color: var(--black-primary);
+          font-weight: 600;
+        }
+
+        .nav-link i {
+          margin-right: 1rem;
+          font-size: 1.2rem;
+          width: 20px;
+          text-align: center;
+        }
+
+        /* ===== CONTEÚDO PRINCIPAL ===== */
+        .main-content {
+          flex: 1;
+          margin-left: 280px;
+          padding: 2rem;
+          transition: margin-left 0.3s ease;
+        }
+
+        /* ===== HEADER ===== */
+        .header {
+          background: var(--black-light);
+          padding: 1.5rem 2rem;
+          border-radius: 12px;
+          margin-bottom: 2rem;
+          border: 1px solid var(--gold-dark);
+          box-shadow: 0 4px 15px rgba(255, 215, 0, 0.1);
+        }
+
+        .header h2 {
+          color: var(--gold-primary);
+          font-size: 1.8rem;
+          margin-bottom: 0.5rem;
+        }
+
+        .header .breadcrumb {
+          color: var(--text-gray);
+          font-size: 0.9rem;
+        }
+
+        /* ===== CARDS DE STATUS ===== */
+        .status-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+          gap: 1.5rem;
+          margin-bottom: 2rem;
+        }
+
+        .status-card {
+          background: var(--black-light);
+          padding: 2rem;
+          border-radius: 12px;
+          border: 1px solid var(--gold-dark);
+          transition: all 0.3s ease;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .status-card::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 4px;
+          height: 100%;
+          background: var(--gold-primary);
+        }
+
+        .status-card:hover {
+          transform: translateY(-5px);
+          box-shadow: 0 8px 25px rgba(255, 215, 0, 0.2);
+        }
+
+        .status-card.online {
+          border-color: var(--success);
+        }
+
+        .status-card.online::before {
+          background: var(--success);
+        }
+
+        .status-card.offline {
+          border-color: var(--danger);
+        }
+
+        .status-card.offline::before {
+          background: var(--danger);
+        }
+
+        .status-icon {
+          font-size: 2.5rem;
+          margin-bottom: 1rem;
+          color: var(--gold-primary);
+        }
+
+        .status-card h3 {
+          color: var(--text-light);
+          font-size: 1.2rem;
+          margin-bottom: 0.5rem;
+        }
+
+        .status-card p {
+          color: var(--text-gray);
+          margin-bottom: 1rem;
+        }
+
+        .status-badge {
+          display: inline-block;
+          padding: 0.5rem 1rem;
+          border-radius: 20px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          text-transform: uppercase;
+        }
+
+        .badge-online {
+          background: var(--success);
+          color: white;
+        }
+
+        .badge-offline {
+          background: var(--danger);
+          color: white;
+        }
+
+        /* ===== TABELAS ===== */
+        .data-section {
+          background: var(--black-light);
+          border-radius: 12px;
+          padding: 2rem;
+          margin-bottom: 2rem;
+          border: 1px solid var(--gold-dark);
+        }
+
+        .section-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 1.5rem;
+          flex-wrap: wrap;
+          gap: 1rem;
+        }
+
+        .section-header h3 {
+          color: var(--gold-primary);
+          font-size: 1.4rem;
+        }
+
+        .table-container {
+          overflow-x: auto;
+          border-radius: 8px;
+        }
+
+        .data-table {
+          width: 100%;
+          border-collapse: collapse;
+          background: var(--black-secondary);
+          min-width: 800px; /* Garante que a tabela tenha largura mínima */
+        }
+
+        .data-table th {
+          background: var(--gold-primary);
+          color: var(--black-primary);
+          padding: 1rem;
+          text-align: left;
+          font-weight: 600;
+          text-transform: uppercase;
+          font-size: 0.9rem;
+          letter-spacing: 1px;
+        }
+
+        .data-table td {
+          padding: 1rem;
+          border-bottom: 1px solid var(--black-light);
+          color: var(--text-light);
+        }
+
+        .data-table tr:hover {
+          background: var(--black-light);
+        }
+
+        .data-table tr:last-child td {
+          border-bottom: none;
+        }
+
+        /* ===== BOTÕES ===== */
+        .btn {
+          padding: 0.75rem 1.5rem;
+          border: none;
+          border-radius: 6px;
+          font-weight: 600;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.5rem;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          font-size: 0.9rem;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+        }
+
+        .btn-primary {
+          background: linear-gradient(135deg, var(--gold-primary) 0%, var(--gold-dark) 100%);
+          color: var(--black-primary);
+        }
+
+        .btn-primary:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 5px 15px rgba(255, 215, 0, 0.4);
+        }
+
+        .btn-secondary {
+          background: var(--black-light);
+          color: var(--text-light);
+          border: 1px solid var(--gold-dark);
+        }
+
+        .btn-secondary:hover {
+          background: var(--gold-primary);
+          color: var(--black-primary);
+        }
+
+        .btn-sm {
+          padding: 0.5rem 1rem;
+          font-size: 0.8rem;
+        }
+
+        /* ===== FORMULÁRIOS ===== */
+        .form-group {
+          margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+          display: block;
+          color: var(--text-light);
+          margin-bottom: 0.5rem;
+          font-weight: 500;
+        }
+
+        .form-control {
+          width: 100%;
+          padding: 0.75rem 1rem;
+          background: var(--black-secondary);
+          border: 1px solid var(--gold-dark);
+          border-radius: 6px;
+          color: var(--text-light);
+          font-size: 1rem;
+          transition: all 0.3s ease;
+        }
+
+        .form-control:focus {
+          outline: none;
+          border-color: var(--gold-primary);
+          box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.1);
+        }
+
+        /* ===== ALERTAS ===== */
+        .alert {
+          padding: 1rem 1.5rem;
+          border-radius: 8px;
+          margin-bottom: 1.5rem;
+          border-left: 4px solid;
+        }
+
+        .alert-success {
+          background: rgba(40, 167, 69, 0.1);
+          border-color: var(--success);
+          color: var(--success);
+        }
+
+        .alert-error {
+          background: rgba(220, 53, 69, 0.1);
+          border-color: var(--danger);
+          color: var(--danger);
+        }
+
+        .alert-warning {
+          background: rgba(255, 193, 7, 0.1);
+          border-color: var(--warning);
+          color: var(--warning);
+        }
+
+        /* ===== BOTÃO MENU MÓVEL ===== */
+        .mobile-menu-btn {
+          display: none;
+          position: fixed;
+          top: 1rem;
+          left: 1rem;
+          z-index: 1001;
+          background: var(--gold-primary);
+          color: var(--black-primary);
+          border: none;
+          padding: 0.75rem;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 1.2rem;
+          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        /* ===== OVERLAY PARA MÓVEL ===== */
+        .sidebar-overlay {
+          display: none;
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0, 0, 0, 0.7);
+          z-index: 999;
+        }
+
+        /* ===== RESPONSIVO ===== */
+        @media (max-width: 1024px) {
+          .sidebar {
+            transform: translateX(-100%);
+          }
+          
+          .sidebar.active {
+            transform: translateX(0);
+          }
+          
+          .main-content {
+            margin-left: 0;
+            padding: 1rem;
+          }
+          
+          .mobile-menu-btn {
+            display: block;
+          }
+          
+          .sidebar-overlay.active {
+            display: block;
+          }
+          
+          .status-grid {
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+          }
+        }
+
+        @media (max-width: 768px) {
+          .header {
+            padding: 1rem;
+          }
+          
+          .header h2 {
+            font-size: 1.5rem;
+          }
+          
+          .data-section {
+            padding: 1rem;
+          }
+          
+          .status-grid {
+            grid-template-columns: 1fr;
+          }
+          
+          .section-header {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+          
+          .section-header h3 {
+            font-size: 1.2rem;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .main-content {
+            padding: 0.5rem;
+          }
+          
+          .status-card {
+            padding: 1.5rem;
+          }
+          
+          .btn {
+            padding: 0.6rem 1.2rem;
+            font-size: 0.8rem;
+          }
+          
+          .logo h1 {
+            font-size: 1.5rem;
+          }
+        }
+
+        /* ===== ANIMAÇÕES ===== */
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .fade-in {
+          animation: fadeIn 0.5s ease;
+        }
+
+        /* ===== LOADING ===== */
+        .loading {
+          display: inline-block;
+          width: 20px;
+          height: 20px;
+          border: 3px solid rgba(255, 215, 0, 0.3);
+          border-radius: 50%;
+          border-top-color: var(--gold-primary);
+          animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+          to {
+            transform: rotate(360deg);
+          }
+        }
+
+        /* ===== SCROLLBAR PERSONALIZADA ===== */
+        ::-webkit-scrollbar {
+          width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+          background: var(--black-secondary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+          background: var(--gold-primary);
+          border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+          background: var(--gold-dark);
+        }
 
         /* NOTIFICAÇÕES PERSONALIZADAS */
         .custom-notification {
@@ -58,9 +588,24 @@
             color: white;
             border-left: 4px solid #d39e00;
         }
+
+        .loading { 
+            padding: 20px; 
+            text-align: center; 
+            color: #FFD700; 
+        }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
+    <!-- ✅ BOTÃO MENU MÓVEL -->
+    <button class="mobile-menu-btn" id="mobileMenuBtn">
+        <i class="fas fa-bars"></i>
+    </button>
+    
+    <!-- ✅ OVERLAY PARA FECHAR MENU NO MÓVEL -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
     <div class="loading">
         <h1>💼 Sistema de Empréstimos</h1>
         <p>Carregando...</p>
@@ -70,7 +615,7 @@
     <div id="app" class="hidden">
         <div class="admin-container">
             <!-- SIDEBAR -->
-            <aside class="sidebar">
+            <aside class="sidebar" id="sidebar">
                 <div class="logo">
                     <h1>💼 Empréstimos</h1>
                     <div class="subtitle">Sistema Administrativo</div>
@@ -411,32 +956,114 @@
 
     <!-- ✅ JAVASCRIPT -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/scripts/admin-novo.js"></script>
     
     <!-- ✅ SCRIPT DE INICIALIZAÇÃO -->
     <script>
-        // ✅ VERIFICA SE O SCRIPT CARREGOU
-        setTimeout(function() {
-            if (typeof showSection === 'undefined') {
-                console.error('❌ admin-novo.js não carregou');
-                document.body.innerHTML = `
-                    <div style="padding: 20px; text-align: center;">
-                        <h1 style="color: #FFD700;">⚠️ Erro de Carregamento</h1>
-                        <p>O sistema admin não carregou corretamente.</p>
-                        <button onclick="location.reload()" style="background: #FFD700; color: #000; padding: 10px 20px; border: none; border-radius: 5px;">
-                            🔄 Recarregar
-                        </button>
-                    </div>
-                `;
-            } else {
-                console.log('✅ admin-novo.js carregado com sucesso!');
+        // ✅ GERENCIAMENTO DO MENU MÓVEL
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+        
+        function toggleSidebar() {
+            sidebar.classList.toggle('active');
+            sidebarOverlay.classList.toggle('active');
+        }
+        
+        mobileMenuBtn.addEventListener('click', toggleSidebar);
+        sidebarOverlay.addEventListener('click', toggleSidebar);
+        
+        // ✅ FUNÇÃO PARA ALTERNAR ENTRE SEÇÕES
+        function showSection(sectionId, event) {
+            if (event) event.preventDefault();
+            
+            // Esconde todas as seções
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.add('hidden');
+            });
+            
+            // Remove a classe active de todos os links
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('active');
+            });
+            
+            // Mostra a seção selecionada
+            document.getElementById(sectionId).classList.remove('hidden');
+            
+            // Adiciona a classe active ao link clicado
+            if (event) {
+                event.currentTarget.classList.add('active');
+            }
+            
+            // Atualiza o título da página
+            const titles = {
+                'dashboard': 'Dashboard',
+                'clientes': 'Gerenciar Clientes',
+                'emprestimos': 'Gerenciar Empréstimos',
+                'pagamentos': 'Gerenciar Pagamentos',
+                'settings': 'Configurações'
+            };
+            
+            document.getElementById('pageTitle').textContent = titles[sectionId];
+            
+            // Fecha o menu no mobile após clicar em um item
+            if (window.innerWidth <= 1024) {
+                toggleSidebar();
+            }
+        }
+        
+        // ✅ FUNÇÕES SIMULADAS PARA DEMONSTRAÇÃO
+        function abrirModalCliente() {
+            const modal = new bootstrap.Modal(document.getElementById('modalCliente'));
+            modal.show();
+        }
+        
+        function abrirModalEmprestimo() {
+            const modal = new bootstrap.Modal(document.getElementById('modalEmprestimo'));
+            modal.show();
+        }
+        
+        function salvarCliente() {
+            alert('Cliente salvo com sucesso!');
+            const modal = bootstrap.Modal.getInstance(document.getElementById('modalCliente'));
+            modal.hide();
+        }
+        
+        function salvarEmprestimo() {
+            alert('Empréstimo salvo com sucesso!');
+            const modal = bootstrap.Modal.getInstance(document.getElementById('modalEmprestimo'));
+            modal.hide();
+        }
+        
+        function calcularParcelas() {
+            // Simulação de cálculo de parcelas
+            document.getElementById('valorParcela').value = 'R$ 150,00';
+        }
+        
+        function atualizarDashboard() {
+            // Simulação de dados do dashboard
+            document.getElementById('totalClientes').textContent = '25';
+            document.getElementById('totalEmprestimos').textContent = '18';
+            document.getElementById('totalPendentes').textContent = '5';
+            document.getElementById('totalAtrasados').textContent = '3';
+        }
+        
+        // ✅ INICIALIZAÇÃO
+        document.addEventListener('DOMContentLoaded', function() {
+            // Simula o carregamento do sistema
+            setTimeout(function() {
                 document.querySelector('.loading').style.display = 'none';
                 document.getElementById('app').classList.remove('hidden');
                 
-                // ✅ INICIALIZA O DASHBOARD
+                // Inicializa o dashboard
                 atualizarDashboard();
-            }
-        }, 1000);      
+                
+                // Adiciona animação de entrada
+                document.querySelectorAll('.status-card').forEach((card, index) => {
+                    card.style.animationDelay = `${index * 0.1}s`;
+                    card.classList.add('fade-in');
+                });
+            }, 1500);
+        });
     </script>
 </body>
 </html>
