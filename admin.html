@@ -516,60 +516,55 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/scripts/admin-novo.js"></script>
     
-    <!-- ✅ SCRIPT DE LOGIN SEGURO -->
+    <!-- ✅ SCRIPT DE LOGIN CORRIGIDO -->
     <script>
-        // ✅ CREDENCIAIS OFUSCADAS (dificil de encontrar no código)
-        const loginData = {
-            u: btoa('QWRtaW4='), // 'Admin' em base64 duplo
-            p: btoa('QWRtaW4=')  // 'Admin' em base64 duplo
+        // ✅ CREDENCIAIS SIMPLES E FUNCIONAIS
+        const validCredentials = {
+            username: "Admin",
+            password: "Admin"
         };
 
-        // ✅ FUNÇÃO DE LOGIN SEGURA
+        // ✅ FUNÇÃO DE LOGIN SIMPLES E EFETIVA
         function validateLogin(username, password) {
-            // Converte para base64 para comparar
-            const userBase64 = btoa(username);
-            const passBase64 = btoa(password);
-            
-            // Verifica as credenciais ofuscadas
-            return userBase64 === loginData.u && passBase64 === loginData.p;
+            return username === validCredentials.username && 
+                   password === validCredentials.password;
         }
 
         // ✅ GERENCIAMENTO DE SESSÃO
         function setSession() {
-            // Cria um token simples baseado em timestamp
-            const token = btoa(Date.now().toString() + '|PC_Credit_Admin');
-            sessionStorage.setItem('admin_token', token);
             sessionStorage.setItem('admin_logged_in', 'true');
+            sessionStorage.setItem('login_time', new Date().getTime().toString());
             return true;
         }
 
         function checkSession() {
             const loggedIn = sessionStorage.getItem('admin_logged_in');
-            const token = sessionStorage.getItem('admin_token');
+            const loginTime = sessionStorage.getItem('login_time');
             
-            if (!loggedIn || !token) return false;
+            if (!loggedIn || !loginTime) return false;
             
-            // Verifica se o token é válido (simplificado)
-            try {
-                const decoded = atob(token).split('|');
-                return decoded[1] === 'PC_Credit_Admin';
-            } catch {
-                return false;
-            }
+            // Verifica se a sessão tem menos de 8 horas
+            const currentTime = new Date().getTime();
+            const sessionAge = currentTime - parseInt(loginTime);
+            const eightHours = 8 * 60 * 60 * 1000; // 8 horas em milissegundos
+            
+            return sessionAge < eightHours;
         }
 
         function clearSession() {
-            sessionStorage.removeItem('admin_token');
             sessionStorage.removeItem('admin_logged_in');
+            sessionStorage.removeItem('login_time');
         }
 
         // ✅ EVENTO DE LOGIN
         document.getElementById('loginForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
-            const username = document.getElementById('username').value;
+            const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
             const errorDiv = document.getElementById('loginError');
+            
+            console.log('Tentando login:', { username, password }); // Debug
             
             if (validateLogin(username, password)) {
                 // Login bem-sucedido
@@ -593,6 +588,9 @@
                 setTimeout(() => {
                     this.style.animation = '';
                 }, 500);
+                
+                // Limpa os campos
+                document.getElementById('password').value = '';
             }
         });
 
@@ -600,18 +598,20 @@
         function logout() {
             if (confirm('Deseja realmente sair do sistema?')) {
                 clearSession();
-                document.getElementById('app').classList.add('hidden');
-                document.getElementById('loginScreen').style.display = 'flex';
-                document.getElementById('loginForm').reset();
+                location.reload(); // Recarrega a página para estado limpo
             }
         }
 
         // ✅ INICIALIZAÇÃO DO SISTEMA
         function initializeAdminSystem() {
+            // Esconde o loading após 1 segundo
             setTimeout(function() {
+                document.querySelector('.loading').style.display = 'none';
+                
+                // Verifica se o script admin carregou
                 if (typeof showSection === 'undefined') {
                     console.error('❌ admin-novo.js não carregou');
-                    document.body.innerHTML = `
+                    document.getElementById('app').innerHTML = `
                         <div style="padding: 20px; text-align: center;">
                             <h1 style="color: #FFD700;">⚠️ Erro de Carregamento</h1>
                             <p>O sistema admin não carregou corretamente.</p>
@@ -621,11 +621,11 @@
                         </div>
                     `;
                 } else {
-                    console.log('✅ admin-novo.js carregado com sucesso!');
-                    document.querySelector('.loading').style.display = 'none';
-                    
+                    console.log('✅ Sistema admin carregado com sucesso!');
                     // ✅ INICIALIZA O DASHBOARD
-                    atualizarDashboard();
+                    if (typeof atualizarDashboard === 'function') {
+                        atualizarDashboard();
+                    }
                 }
             }, 1000);
         }
@@ -636,6 +636,11 @@
                 document.getElementById('loginScreen').style.display = 'none';
                 document.getElementById('app').classList.remove('hidden');
                 initializeAdminSystem();
+            } else {
+                // Mostra instruções de login no console para debug
+                console.log('💡 Credenciais de teste:');
+                console.log('👤 Usuário: Admin');
+                console.log('🔑 Senha: Admin');
             }
         });
 
