@@ -125,7 +125,11 @@
             padding: 20px; 
             text-align: center; 
             color: #FFD700; 
+            background: var(--black-light);
+            border-radius: 10px;
+            margin: 20px;
         }
+        
         .hidden { display: none; }
 
         /* NOTIFICAÇÕES PERSONALIZADAS */
@@ -301,205 +305,211 @@
 
     <!-- ✅ CONTEÚDO PRINCIPAL (OCULTO INICIALMENTE) -->
     <div id="app" class="hidden">
-        <!-- Todo o conteúdo do admin que você já tinha -->
-        <div class="loading">
+        <!-- Loading que será removido quando o sistema carregar -->
+        <div class="loading" id="systemLoading">
             <h1>💼 Sistema de Empréstimos</h1>
             <p>Carregando...</p>
+            <div class="spinner-border text-warning mt-3" role="status">
+                <span class="visually-hidden">Carregando...</span>
+            </div>
         </div>
 
-        <div class="admin-container">
-            <!-- SIDEBAR -->
-            <aside class="sidebar">
-                <div class="logo">
-                    <h1>💼 Empréstimos</h1>
-                    <div class="subtitle">Sistema Administrativo</div>
-                </div>
-                <ul class="nav-menu">
-                    <li class="nav-item">
-                        <a href="#" class="nav-link active" onclick="showSection('dashboard', event)">
-                            <i class="fas fa-tachometer-alt"></i> Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="#" class="nav-link" onclick="showSection('clientes', event)">
-                            <i class="fas fa-users"></i> Clientes
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="#" class="nav-link" onclick="showSection('emprestimos', event)">
-                            <i class="fas fa-hand-holding-usd"></i> Empréstimos
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="#" class="nav-link" onclick="showSection('pagamentos', event)">
-                            <i class="fas fa-credit-card"></i> Pagamentos
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="#" class="nav-link" onclick="showSection('settings', event)">
-                            <i class="fas fa-cog"></i> Configurações
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="#" class="nav-link text-warning" onclick="logout()">
-                            <i class="fas fa-sign-out-alt"></i> Sair
-                        </a>
-                    </li>
-                </ul>
-            </aside>
+        <!-- Conteúdo real do admin (inicialmente oculto) -->
+        <div id="adminContent" class="hidden">
+            <div class="admin-container">
+                <!-- SIDEBAR -->
+                <aside class="sidebar">
+                    <div class="logo">
+                        <h1>💼 Empréstimos</h1>
+                        <div class="subtitle">Sistema Administrativo</div>
+                    </div>
+                    <ul class="nav-menu">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link active" onclick="showSection('dashboard', event)">
+                                <i class="fas fa-tachometer-alt"></i> Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" onclick="showSection('clientes', event)">
+                                <i class="fas fa-users"></i> Clientes
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" onclick="showSection('emprestimos', event)">
+                                <i class="fas fa-hand-holding-usd"></i> Empréstimos
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" onclick="showSection('pagamentos', event)">
+                                <i class="fas fa-credit-card"></i> Pagamentos
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" onclick="showSection('settings', event)">
+                                <i class="fas fa-cog"></i> Configurações
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="#" class="nav-link text-warning" onclick="logout()">
+                                <i class="fas fa-sign-out-alt"></i> Sair
+                            </a>
+                        </li>
+                    </ul>
+                </aside>
 
-            <!-- MAIN CONTENT -->
-            <main class="main-content">
-                <!-- HEADER -->
-                <header class="header">
-                    <h2 id="pageTitle">Dashboard</h2>
-                    <div class="breadcrumb">Sistema Administrativo</div>
-                </header>
+                <!-- MAIN CONTENT -->
+                <main class="main-content">
+                    <!-- HEADER -->
+                    <header class="header">
+                        <h2 id="pageTitle">Dashboard</h2>
+                        <div class="breadcrumb">Sistema Administrativo</div>
+                    </header>
 
-                <!-- ✅ DASHBOARD SECTION -->
-                <div id="dashboard" class="content-section">
-                    <div class="status-grid">
-                        <div class="status-card">
-                            <div class="status-icon">
-                                <i class="fas fa-users"></i>
+                    <!-- ✅ DASHBOARD SECTION -->
+                    <div id="dashboard" class="content-section">
+                        <div class="status-grid">
+                            <div class="status-card">
+                                <div class="status-icon">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                                <h3>Total Clientes</h3>
+                                <p>Clientes cadastrados</p>
+                                <span id="totalClientes" class="status-badge">0</span>
                             </div>
-                            <h3>Total Clientes</h3>
-                            <p>Clientes cadastrados</p>
-                            <span id="totalClientes" class="status-badge">0</span>
-                        </div>
-                        
-                        <div class="status-card">
-                            <div class="status-icon">
-                                <i class="fas fa-hand-holding-usd"></i>
+                            
+                            <div class="status-card">
+                                <div class="status-icon">
+                                    <i class="fas fa-hand-holding-usd"></i>
+                                </div>
+                                <h3>Empréstimos</h3>
+                                <p>Total de empréstimos</p>
+                                <span id="totalEmprestimos" class="status-badge">0</span>
                             </div>
-                            <h3>Empréstimos</h3>
-                            <p>Total de empréstimos</p>
-                            <span id="totalEmprestimos" class="status-badge">0</span>
-                        </div>
-                        
-                        <div class="status-card">
-                            <div class="status-icon">
-                                <i class="fas fa-clock"></i>
+                            
+                            <div class="status-card">
+                                <div class="status-icon">
+                                    <i class="fas fa-clock"></i>
+                                </div>
+                                <h3>Pendentes</h3>
+                                <p>Pagamentos pendentes</p>
+                                <span id="totalPendentes" class="status-badge">0</span>
                             </div>
-                            <h3>Pendentes</h3>
-                            <p>Pagamentos pendentes</p>
-                            <span id="totalPendentes" class="status-badge">0</span>
-                        </div>
-                        
-                        <div class="status-card">
-                            <div class="status-icon">
-                                <i class="fas fa-exclamation-triangle"></i>
+                            
+                            <div class="status-card">
+                                <div class="status-icon">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                </div>
+                                <h3>Atrasados</h3>
+                                <p>Pagamentos atrasados</p>
+                                <span id="totalAtrasados" class="status-badge">0</span>
                             </div>
-                            <h3>Atrasados</h3>
-                            <p>Pagamentos atrasados</p>
-                            <span id="totalAtrasados" class="status-badge">0</span>
                         </div>
                     </div>
-                </div>
 
-                <!-- ✅ CLIENTES SECTION -->
-                <div id="clientes" class="content-section hidden">
-                    <div class="data-section">
-                        <div class="section-header">
-                            <h3>Gerenciar Clientes</h3>
-                            <button class="btn btn-primary" onclick="abrirModalCliente()">
-                                <i class="fas fa-plus"></i> Novo Cliente
-                            </button>
-                        </div>
-                        
-                        <div class="table-container">
-                            <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>CPF</th>
-                                        <th>Nome</th>
-                                        <th>Telefone</th>
-                                        <th>Email</th>
-                                        <th>Empréstimos</th>
-                                        <th>Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tabelaClientes">
-                                    <!-- Dados carregados via JavaScript -->
-                                </tbody>
-                            </table>
+                    <!-- ✅ CLIENTES SECTION -->
+                    <div id="clientes" class="content-section hidden">
+                        <div class="data-section">
+                            <div class="section-header">
+                                <h3>Gerenciar Clientes</h3>
+                                <button class="btn btn-primary" onclick="abrirModalCliente()">
+                                    <i class="fas fa-plus"></i> Novo Cliente
+                                </button>
+                            </div>
+                            
+                            <div class="table-container">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>CPF</th>
+                                            <th>Nome</th>
+                                            <th>Telefone</th>
+                                            <th>Email</th>
+                                            <th>Empréstimos</th>
+                                            <th>Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tabelaClientes">
+                                        <!-- Dados carregados via JavaScript -->
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- ✅ EMPRÉSTIMOS SECTION -->
-                <div id="emprestimos" class="content-section hidden">
-                    <div class="data-section">
-                        <div class="section-header">
-                            <h3>Gerenciar Empréstimos</h3>
-                            <button class="btn btn-primary" onclick="abrirModalEmprestimo()">
-                                <i class="fas fa-plus"></i> Novo Empréstimo
-                            </button>
-                        </div>
-                        
-                        <div class="table-container">
-                            <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Cliente</th>
-                                        <th>Valor</th>
-                                        <th>Parcelas</th>
-                                        <th>Data</th>
-                                        <th>Status</th>
-                                        <th>Taxa Juros</th>
-                                        <th>Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tabelaEmprestimos">
-                                    <!-- Dados carregados via JavaScript -->
-                                </tbody>
-                            </table>
+                    <!-- ✅ EMPRÉSTIMOS SECTION -->
+                    <div id="emprestimos" class="content-section hidden">
+                        <div class="data-section">
+                            <div class="section-header">
+                                <h3>Gerenciar Empréstimos</h3>
+                                <button class="btn btn-primary" onclick="abrirModalEmprestimo()">
+                                    <i class="fas fa-plus"></i> Novo Empréstimo
+                                </button>
+                            </div>
+                            
+                            <div class="table-container">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Cliente</th>
+                                            <th>Valor</th>
+                                            <th>Parcelas</th>
+                                            <th>Data</th>
+                                            <th>Status</th>
+                                            <th>Taxa Juros</th>
+                                            <th>Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tabelaEmprestimos">
+                                        <!-- Dados carregados via JavaScript -->
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- ✅ PAGAMENTOS SECTION -->
-                <div id="pagamentos" class="content-section hidden">
-                    <div class="data-section">
-                        <div class="section-header">
-                            <h3>Gerenciar Pagamentos</h3>
-                        </div>
-                        
-                        <div class="table-container">
-                            <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>Cliente</th>
-                                        <th>Empréstimo</th>
-                                        <th>Valor</th>
-                                        <th>Vencimento</th>
-                                        <th>Status</th>
-                                        <th>Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tabelaPagamentos">
-                                    <!-- Dados carregados via JavaScript -->
-                                </tbody>
-                            </table>
+                    <!-- ✅ PAGAMENTOS SECTION -->
+                    <div id="pagamentos" class="content-section hidden">
+                        <div class="data-section">
+                            <div class="section-header">
+                                <h3>Gerenciar Pagamentos</h3>
+                            </div>
+                            
+                            <div class="table-container">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Cliente</th>
+                                            <th>Empréstimo</th>
+                                            <th>Valor</th>
+                                            <th>Vencimento</th>
+                                            <th>Status</th>
+                                            <th>Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tabelaPagamentos">
+                                        <!-- Dados carregados via JavaScript -->
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- ✅ CONFIGURAÇÕES SECTION -->
-                <div id="settings" class="content-section hidden">
-                    <div class="data-section">
-                        <div class="section-header">
-                            <h3>Configurações do Sistema</h3>
+                    <!-- ✅ CONFIGURAÇÕES SECTION -->
+                    <div id="settings" class="content-section hidden">
+                        <div class="data-section">
+                            <div class="section-header">
+                                <h3>Configurações do Sistema</h3>
+                            </div>
+                            <p>Configurações em desenvolvimento...</p>
                         </div>
-                        <p>Configurações em desenvolvimento...</p>
                     </div>
-                </div>
-            </main>
+                </main>
+            </div>
         </div>
     </div>
 
-    <!-- ✅ MODAIS (mantidos do código original) -->
+    <!-- ✅ MODAIS -->
     <div class="modal fade" id="modalEmprestimo" tabindex="-1" aria-hidden="true">
         <!-- Modal empréstimo -->
     </div>
@@ -546,7 +556,7 @@
             // Verifica se a sessão tem menos de 8 horas
             const currentTime = new Date().getTime();
             const sessionAge = currentTime - parseInt(loginTime);
-            const eightHours = 8 * 60 * 60 * 1000; // 8 horas em milissegundos
+            const eightHours = 8 * 60 * 60 * 1000;
             
             return sessionAge < eightHours;
         }
@@ -563,8 +573,6 @@
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
             const errorDiv = document.getElementById('loginError');
-            
-            console.log('Tentando login:', { username, password }); // Debug
             
             if (validateLogin(username, password)) {
                 // Login bem-sucedido
@@ -598,36 +606,55 @@
         function logout() {
             if (confirm('Deseja realmente sair do sistema?')) {
                 clearSession();
-                location.reload(); // Recarrega a página para estado limpo
+                location.reload();
             }
         }
 
         // ✅ INICIALIZAÇÃO DO SISTEMA
         function initializeAdminSystem() {
-            // Esconde o loading após 1 segundo
+            console.log('🚀 Inicializando sistema admin...');
+            
+            // Verifica se o script admin carregou
+            const checkAdminScript = setInterval(function() {
+                if (typeof showSection !== 'undefined' && typeof atualizarDashboard !== 'undefined') {
+                    clearInterval(checkAdminScript);
+                    
+                    // Sistema carregou com sucesso!
+                    console.log('✅ Sistema admin carregado!');
+                    
+                    // Esconde o loading e mostra o conteúdo
+                    document.getElementById('systemLoading').classList.add('hidden');
+                    document.getElementById('adminContent').classList.remove('hidden');
+                    
+                    // Inicializa o dashboard
+                    try {
+                        atualizarDashboard();
+                        console.log('📊 Dashboard inicializado!');
+                    } catch (error) {
+                        console.error('❌ Erro ao inicializar dashboard:', error);
+                    }
+                    
+                } else {
+                    console.log('⏳ Aguardando carregamento do sistema...');
+                }
+            }, 500); // Verifica a cada 500ms
+
+            // Timeout de segurança - se não carregar em 10 segundos
             setTimeout(function() {
-                document.querySelector('.loading').style.display = 'none';
-                
-                // Verifica se o script admin carregou
+                clearInterval(checkAdminScript);
                 if (typeof showSection === 'undefined') {
-                    console.error('❌ admin-novo.js não carregou');
-                    document.getElementById('app').innerHTML = `
+                    console.error('❌ admin-novo.js não carregou dentro do tempo limite');
+                    document.getElementById('systemLoading').innerHTML = `
                         <div style="padding: 20px; text-align: center;">
                             <h1 style="color: #FFD700;">⚠️ Erro de Carregamento</h1>
                             <p>O sistema admin não carregou corretamente.</p>
-                            <button onclick="location.reload()" style="background: #FFD700; color: #000; padding: 10px 20px; border: none; border-radius: 5px;">
+                            <button onclick="location.reload()" class="btn btn-warning mt-3">
                                 🔄 Recarregar
                             </button>
                         </div>
                     `;
-                } else {
-                    console.log('✅ Sistema admin carregado com sucesso!');
-                    // ✅ INICIALIZA O DASHBOARD
-                    if (typeof atualizarDashboard === 'function') {
-                        atualizarDashboard();
-                    }
                 }
-            }, 1000);
+            }, 10000); // 10 segundos de timeout
         }
 
         // ✅ VERIFICA SE JÁ ESTÁ LOGADO AO CARREGAR A PÁGINA
@@ -637,10 +664,7 @@
                 document.getElementById('app').classList.remove('hidden');
                 initializeAdminSystem();
             } else {
-                // Mostra instruções de login no console para debug
-                console.log('💡 Credenciais de teste:');
-                console.log('👤 Usuário: Admin');
-                console.log('🔑 Senha: Admin');
+                console.log('💡 Credenciais de teste: Usuário: Admin, Senha: Admin');
             }
         });
 
