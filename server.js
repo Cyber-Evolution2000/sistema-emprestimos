@@ -762,3 +762,70 @@ app.delete('/api/admin/clientes/:cpf', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+
+// ✅ ROTA PARA EXCLUIR EMPRÉSTIMO
+app.delete('/api/admin/emprestimos/:id', async (req, res) => {
+    try {
+        const emprestimoId = parseInt(req.params.id);
+        
+        console.log('🗑️ Tentando excluir empréstimo ID:', emprestimoId);
+        
+        if (isNaN(emprestimoId)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'ID do empréstimo inválido' 
+            });
+        }
+
+        // Verificar se o empréstimo existe
+        const emprestimoCheck = await pool.query(
+            'SELECT id FROM emprestimos WHERE id = $1',
+            [emprestimoId]
+        );
+
+        if (emprestimoCheck.rows.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Empréstimo não encontrado' 
+            });
+        }
+
+        // ✅ PRIMEIRO: Excluir as parcelas relacionadas
+        console.log('🗑️ Excluindo parcelas do empréstimo:', emprestimoId);
+        await pool.query(
+            'DELETE FROM parcelas WHERE emprestimo_id = $1',
+            [emprestimoId]
+        );
+
+        // ✅ DEPOIS: Excluir o empréstimo
+        console.log('🗑️ Excluindo empréstimo:', emprestimoId);
+        const result = await pool.query(
+            'DELETE FROM emprestimos WHERE id = $1 RETURNING id',
+            [emprestimoId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Empréstimo não encontrado após verificação' 
+            });
+        }
+
+        console.log('✅ Empréstimo excluído com sucesso:', emprestimoId);
+        
+        res.json({ 
+            success: true, 
+            message: 'Empréstimo excluído com sucesso',
+            id: emprestimoId
+        });
+
+    } catch (error) {
+        console.error('❌ Erro ao excluir empréstimo:', error);
+        
+        res.status(500).json({ 
+            success: false, 
+            message: 'Erro interno do servidor ao excluir empréstimo',
+            error: error.message 
+        });
+    }
+});

@@ -786,3 +786,45 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('🔒 Sistema admin inicializado - BANCO DE DADOS APENAS');
     atualizarDashboard();
 });
+
+// ✅ EXCLUIR EMPRÉSTIMO - COM DEBUG
+async function excluirEmprestimo(id) {
+    try {
+        console.log('🗑️ Tentando excluir empréstimo:', id);
+        
+        const url = `/api/admin/emprestimos/${id}`;
+        console.log('📤 URL da requisição:', url);
+        
+        const response = await fetch(url, {
+            method: 'DELETE'
+        });
+        
+        console.log('📥 Resposta do servidor:', {
+            status: response.status,
+            statusText: response.statusText,
+            ok: response.ok
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('❌ Erro detalhado:', errorText);
+            
+            if (response.status === 404) {
+                throw new Error('Empréstimo não encontrado no servidor');
+            } else if (response.status === 500) {
+                throw new Error('Erro interno do servidor');
+            }
+            throw new Error(`Erro ${response.status}: ${response.statusText} - ${errorText}`);
+        }
+        
+        const result = await response.json();
+        console.log('✅ Resultado da exclusão:', result);
+        
+        showNotification('Empréstimo excluído com sucesso!', 'success');
+        carregarEmprestimos();
+        
+    } catch (error) {
+        console.error('❌ Erro completo ao excluir empréstimo:', error);
+        showNotification('Erro ao excluir empréstimo: ' + error.message, 'error');
+    }
+}
