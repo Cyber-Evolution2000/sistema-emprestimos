@@ -5,13 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin - Sistema de Empréstimos</title>
     
-    <!-- ✅ CSS EXTERNO -->
+    <!-- ✅ CSS -->
     <link rel="stylesheet" href="/css/admin.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     
     <style>
-        /* ✅ ESTILOS ESSENCIAIS */
         .loading { 
             padding: 20px; 
             text-align: center; 
@@ -19,7 +18,7 @@
         }
         .hidden { display: none; }
 
-        /* NOTIFICAÇÕES */
+        /* NOTIFICAÇÕES PERSONALIZADAS */
         .custom-notification {
             position: fixed;
             top: 20px;
@@ -32,8 +31,14 @@
         }
         
         @keyframes slideInRight {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
         }
         
         .notification-success {
@@ -53,107 +58,6 @@
             color: white;
             border-left: 4px solid #d39e00;
         }
-
-        /* ✅ DASHBOARD OTIMIZADO */
-        .status-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 1.5rem;
-            margin-bottom: 2rem;
-        }
-
-        .status-card {
-            background: var(--black-light);
-            padding: 1.5rem;
-            border-radius: 12px;
-            border: 1px solid var(--gold-dark);
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-            text-align: center;
-            min-height: 200px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .status-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 4px;
-            height: 100%;
-            background: var(--gold-primary);
-        }
-
-        .status-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(255, 215, 0, 0.2);
-        }
-
-        .status-card .status-badge {
-            background: linear-gradient(135deg, var(--gold-primary) 0%, var(--gold-secondary) 100%);
-            color: var(--black-primary) !important;
-            font-size: 1.3rem !important;
-            font-weight: 700 !important;
-            padding: 0.8rem 1.2rem !important;
-            border-radius: 10px !important;
-            min-width: 70px;
-            text-align: center;
-            border: 2px solid var(--gold-dark);
-            box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
-            transition: all 0.3s ease;
-            margin-top: auto;
-        }
-
-        .status-card:hover .status-badge {
-            transform: scale(1.05);
-            box-shadow: 0 6px 18px rgba(255, 215, 0, 0.4);
-        }
-
-        .status-card h3 {
-            color: var(--text-light) !important;
-            font-size: 1.1rem !important;
-            font-weight: 600 !important;
-            margin-bottom: 0.5rem !important;
-        }
-
-        .status-card p {
-            color: var(--text-gray) !important;
-            font-size: 0.9rem !important;
-            margin-bottom: 1rem !important;
-            line-height: 1.3;
-        }
-
-        .status-icon {
-            font-size: 2.2rem !important;
-            margin-bottom: 1rem !important;
-            color: var(--gold-primary) !important;
-            text-shadow: 0 2px 8px rgba(255, 215, 0, 0.3);
-        }
-
-        /* ✅ RESPONSIVIDADE */
-        @media (max-width: 1200px) {
-            .status-grid { grid-template-columns: repeat(2, 1fr); }
-            .status-card { min-height: 180px; }
-        }
-
-        @media (max-width: 768px) {
-            .status-grid { grid-template-columns: 1fr; }
-            .status-card { 
-                padding: 1rem;
-                min-height: 160px;
-            }
-            .status-card .status-badge {
-                font-size: 1.1rem !important;
-                padding: 0.6rem 0.9rem !important;
-            }
-            .status-card h3 { font-size: 1rem !important; }
-            .status-card p { font-size: 0.85rem !important; }
-            .status-icon { font-size: 2rem !important; }
-        }
     </style>
 </head>
 <body>
@@ -162,16 +66,15 @@
         <p>Carregando...</p>
     </div>
 
-    <!-- ✅ CONTEÚDO PRINCIPAL -->
+    <!-- ✅ CONTEÚDO PRINCIPAL COMPLETO -->
     <div id="app" class="hidden">
         <div class="admin-container">
-            <!-- ✅ SIDEBAR CORRIGIDA -->
+            <!-- SIDEBAR -->
             <aside class="sidebar">
                 <div class="logo">
-                    <img src="img/logo.png" alt="Logo PC Credit" class="logo-image">
-                    <div class="subtitle">SISTEMA ADMINISTRATIVO - PC CREDIT</div>
+                    <h1>💼 Empréstimos</h1>
+                    <div class="subtitle">Sistema Administrativo</div>
                 </div>
-                
                 <ul class="nav-menu">
                     <li class="nav-item">
                         <a href="#" class="nav-link active" onclick="showSection('dashboard', event)">
@@ -201,39 +104,48 @@
                 </ul>
             </aside>
 
-            <!-- ✅ MAIN CONTENT -->
+            <!-- MAIN CONTENT -->
             <main class="main-content">
+                <!-- HEADER -->
                 <header class="header">
                     <h2 id="pageTitle">Dashboard</h2>
                     <div class="breadcrumb">Sistema Administrativo</div>
                 </header>
 
-                <!-- ✅ SEÇÕES DE CONTEÚDO -->
+                <!-- ✅ DASHBOARD SECTION -->
                 <div id="dashboard" class="content-section">
                     <div class="status-grid">
                         <div class="status-card">
-                            <div class="status-icon"><i class="fas fa-users"></i></div>
+                            <div class="status-icon">
+                                <i class="fas fa-users"></i>
+                            </div>
                             <h3>Total Clientes</h3>
                             <p>Clientes cadastrados</p>
                             <span id="totalClientes" class="status-badge">0</span>
                         </div>
                         
                         <div class="status-card">
-                            <div class="status-icon"><i class="fas fa-hand-holding-usd"></i></div>
+                            <div class="status-icon">
+                                <i class="fas fa-hand-holding-usd"></i>
+                            </div>
                             <h3>Empréstimos</h3>
                             <p>Total de empréstimos</p>
                             <span id="totalEmprestimos" class="status-badge">0</span>
                         </div>
                         
                         <div class="status-card">
-                            <div class="status-icon"><i class="fas fa-clock"></i></div>
+                            <div class="status-icon">
+                                <i class="fas fa-clock"></i>
+                            </div>
                             <h3>Pendentes</h3>
                             <p>Pagamentos pendentes</p>
                             <span id="totalPendentes" class="status-badge">0</span>
                         </div>
                         
                         <div class="status-card">
-                            <div class="status-icon"><i class="fas fa-exclamation-triangle"></i></div>
+                            <div class="status-icon">
+                                <i class="fas fa-exclamation-triangle"></i>
+                            </div>
                             <h3>Atrasados</h3>
                             <p>Pagamentos atrasados</p>
                             <span id="totalAtrasados" class="status-badge">0</span>
@@ -241,44 +153,270 @@
                     </div>
                 </div>
 
-                <!-- ✅ OUTRAS SEÇÕES (mantidas como estão) -->
+                <!-- ✅ CLIENTES SECTION -->
                 <div id="clientes" class="content-section hidden">
-                    <!-- Conteúdo clientes -->
+                    <div class="data-section">
+                        <div class="section-header">
+                            <h3>Gerenciar Clientes</h3>
+                            <button class="btn btn-primary" onclick="abrirModalCliente()">
+                                <i class="fas fa-plus"></i> Novo Cliente
+                            </button>
+                        </div>
+                        
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>CPF</th>
+                                        <th>Nome</th>
+                                        <th>Telefone</th>
+                                        <th>Email</th>
+                                        <th>Empréstimos</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabelaClientes">
+                                    <!-- Dados carregados via JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
 
-                <div id="emprestimos" class="content-section hidden">
-                    <!-- Conteúdo empréstimos -->
-                </div>
+<!-- ✅ EMPRÉSTIMOS SECTION -->
+<div id="emprestimos" class="content-section hidden">
+    <div class="data-section">
+        <div class="section-header">
+            <h3>Gerenciar Empréstimos</h3>
+            <button class="btn btn-primary" onclick="abrirModalEmprestimo()">
+                <i class="fas fa-plus"></i> Novo Empréstimo
+            </button>
+        </div>
+        
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Cliente</th>
+                        <th>Valor</th>
+                        <th>Parcelas</th>
+                        <th>Data</th>
+                        <th>Status</th>
+                        <th>Taxa Juros</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="tabelaEmprestimos">
+                    <!-- Dados carregados via JavaScript -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
 
+                <!-- ✅ PAGAMENTOS SECTION -->
                 <div id="pagamentos" class="content-section hidden">
-                    <!-- Conteúdo pagamentos -->
+                    <div class="data-section">
+                        <div class="section-header">
+                            <h3>Gerenciar Pagamentos</h3>
+                        </div>
+                        
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Cliente</th>
+                                        <th>Empréstimo</th>
+                                        <th>Valor</th>
+                                        <th>Vencimento</th>
+                                        <th>Status</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabelaPagamentos">
+                                    <!-- Dados carregados via JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
 
+                <!-- ✅ CONFIGURAÇÕES SECTION -->
                 <div id="settings" class="content-section hidden">
-                    <!-- Conteúdo configurações -->
+                    <div class="data-section">
+                        <div class="section-header">
+                            <h3>Configurações do Sistema</h3>
+                        </div>
+                        <p>Configurações em desenvolvimento...</p>
+                    </div>
                 </div>
             </main>
         </div>
     </div>
 
-    <!-- ✅ MODAIS (mantidos como estão) -->
+    <!-- ✅ MODAIS NO FINAL DO BODY -->
+
+    <!-- Modal Empréstimo -->
     <div class="modal fade" id="modalEmprestimo" tabindex="-1" aria-hidden="true">
-        <!-- Modal empréstimo -->
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalEmprestimoTitle">Novo Empréstimo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formEmprestimo">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Cliente *</label>
+                                <select class="form-select" id="clienteSelect" required>
+                                    <option value="">Carregando clientes...</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Valor Total *</label>
+                                <input type="number" class="form-control" id="valorTotal" 
+                                       step="0.01" min="0" required 
+                                       onchange="calcularParcelas()">
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Número de Parcelas *</label>
+                                <input type="number" class="form-control" id="numeroParcelas" 
+                                       min="1" max="60" value="12" required
+                                       onchange="calcularParcelas()">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Taxa de Juros (% ao mês)</label>
+                                <input type="number" class="form-control" id="taxaJuros" 
+                                       step="0.01" min="0" value="2.5">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Valor da Parcela</label>
+                                <input type="text" class="form-control" id="valorParcela" readonly>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Datas de Vencimento (aproximadas)</label>
+                            <div id="datasVencimento" class="border rounded p-3 bg-light">
+                                <p class="text-muted small mb-0">As datas serão calculadas automaticamente</p>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Observações</label>
+                            <textarea class="form-control" id="observacoesEmprestimo" rows="3" 
+                                      placeholder="Observações sobre o empréstimo..."></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="salvarEmprestimo()">
+                        <i class="fas fa-save"></i> Salvar Empréstimo
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
+    <!-- Modal Cliente -->
     <div class="modal fade" id="modalCliente" tabindex="-1">
-        <!-- Modal cliente -->
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalClienteTitle">Novo Cliente</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formCliente">
+                        <div class="mb-3">
+                            <label for="cpf" class="form-label">
+                                <i class="fas fa-id-card"></i> CPF *
+                            </label>
+                            <input type="text" class="form-control" id="cpf" placeholder="000.000.000-00" required>
+                            <div class="form-text">CPF do cliente (obrigatório)</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="nome" class="form-label">
+                                <i class="fas fa-user"></i> Nome Completo *
+                            </label>
+                            <input type="text" class="form-control" id="nome" placeholder="Digite o nome completo" required>
+                            <div class="form-text">Nome completo do cliente</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="telefone" class="form-label">
+                                <i class="fas fa-phone"></i> Telefone *
+                            </label>
+                            <input type="tel" class="form-control" id="telefone" placeholder="(00) 00000-0000" required>
+                            <div class="form-text">Telefone para contato</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="email" class="form-label">
+                                <i class="fas fa-envelope"></i> E-mail
+                            </label>
+                            <input type="email" class="form-control" id="email" placeholder="cliente@email.com">
+                            <div class="form-text">E-mail opcional</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="endereco" class="form-label">
+                                <i class="fas fa-map-marker-alt"></i> Endereço
+                            </label>
+                            <textarea class="form-control" id="endereco" rows="3" placeholder="Rua, número, bairro, cidade..."></textarea>
+                            <div class="form-text">Endereço completo</div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="salvarCliente()">
+                        <i class="fas fa-save"></i> Salvar Cliente
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
+    <!-- Modal de Confirmação -->
     <div class="modal fade" id="confirmModal" tabindex="-1">
-        <!-- Modal confirmação -->
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title">
+                        <i class="fas fa-exclamation-triangle"></i> Confirmar Exclusão
+                    </h5>
+                </div>
+                <div class="modal-body">
+                    <p id="confirmMessage">Tem certeza que deseja excluir este item?</p>
+                    <p class="text-muted small"><strong>Atenção:</strong> Esta ação não pode ser desfeita.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="confirmNo">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                    <button type="button" class="btn btn-danger" id="confirmYes">
+                        <i class="fas fa-trash"></i> Sim, Excluir
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- ✅ SCRIPTS -->
+    <!-- ✅ JAVASCRIPT -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/scripts/admin-novo.js"></script>
     
+    <!-- ✅ SCRIPT DE INICIALIZAÇÃO -->
     <script>
+        // ✅ VERIFICA SE O SCRIPT CARREGOU
         setTimeout(function() {
             if (typeof showSection === 'undefined') {
                 console.error('❌ admin-novo.js não carregou');
@@ -286,7 +424,7 @@
                     <div style="padding: 20px; text-align: center;">
                         <h1 style="color: #FFD700;">⚠️ Erro de Carregamento</h1>
                         <p>O sistema admin não carregou corretamente.</p>
-                        <button onclick="location.reload()" class="btn btn-warning">
+                        <button onclick="location.reload()" style="background: #FFD700; color: #000; padding: 10px 20px; border: none; border-radius: 5px;">
                             🔄 Recarregar
                         </button>
                     </div>
@@ -295,9 +433,11 @@
                 console.log('✅ admin-novo.js carregado com sucesso!');
                 document.querySelector('.loading').style.display = 'none';
                 document.getElementById('app').classList.remove('hidden');
+                
+                // ✅ INICIALIZA O DASHBOARD
                 atualizarDashboard();
             }
-        }, 1000);
+        }, 1000);      
     </script>
 </body>
 </html>
