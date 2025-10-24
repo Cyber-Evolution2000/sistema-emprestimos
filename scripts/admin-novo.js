@@ -650,52 +650,62 @@ async function salvarEmprestimo() {
     }
 }
 
-// ✅ FUNÇÕES PARA EXCLUIR EMPRÉSTIMO
-function confirmarExclusaoEmprestimo(id) {
-    // Buscar dados do empréstimo para mostrar na confirmação
-    fetch('/api/admin/emprestimos')
-        .then(response => response.json())
-        .then(emprestimos => {
-            const emprestimo = emprestimos.find(emp => emp.id === id);
-            
-            if (!emprestimo) {
-                showNotification('Empréstimo não encontrado!', 'error');
-                return;
-            }
+// ✅ CONFIRMAR EXCLUSÃO - VERSÃO CORRIGIDA
+async function confirmarExclusaoEmprestimo(id) {
+    try {
+        console.log('🔄 Confirmando exclusão do empréstimo:', id);
+        
+        // Buscar dados atualizados do empréstimo
+        const response = await fetch('/api/admin/emprestimos');
+        if (!response.ok) {
+            throw new Error('Falha ao buscar empréstimos');
+        }
+        
+        const emprestimos = await response.json();
+        const emprestimo = emprestimos.find(emp => emp.id === id);
+        
+        if (!emprestimo) {
+            showNotification('Empréstimo não encontrado!', 'error');
+            return;
+        }
 
-            // Configurar modal de confirmação
-            document.getElementById('confirmMessage').innerHTML = `
-                Tem certeza que deseja excluir o empréstimo <strong>#${emprestimo.id}</strong>
-                do cliente <strong>${emprestimo.cliente_nome}</strong>?
-                <br><br>
-                <strong>Valor:</strong> R$ ${parseFloat(emprestimo.valor_total || 0).toFixed(2)}<br>
-                <strong>Parcelas:</strong> ${emprestimo.parcelas || 0}x
-            `;
+        console.log('✅ Empréstimo encontrado para confirmação:', emprestimo);
 
-            const confirmModal = new bootstrap.Modal(document.getElementById('confirmModal'));
-            
-            // Remover event listeners anteriores
-            document.getElementById('confirmYes').onclick = null;
-            document.getElementById('confirmNo').onclick = null;
-            
-            // Adicionar novos event listeners
-            document.getElementById('confirmYes').onclick = function() {
-                excluirEmprestimo(id);
-                confirmModal.hide();
-            };
-            
-            document.getElementById('confirmNo').onclick = function() {
-                confirmModal.hide();
-            };
-            
-            confirmModal.show();
-        })
-        .catch(error => {
-            console.error('Erro ao buscar dados do empréstimo:', error);
-            showNotification('Erro ao carregar dados do empréstimo', 'error');
-        });
+        // Configurar modal de confirmação
+        document.getElementById('confirmMessage').innerHTML = `
+            Tem certeza que deseja excluir o empréstimo <strong>#${emprestimo.id}</strong>
+            do cliente <strong>${emprestimo.cliente_nome}</strong>?
+            <br><br>
+            <strong>Valor:</strong> R$ ${parseFloat(emprestimo.valor_total || 0).toFixed(2)}<br>
+            <strong>Parcelas:</strong> ${emprestimo.parcelas || 0}x<br>
+            <strong>Status:</strong> ${emprestimo.status || 'Ativo'}
+        `;
+
+        const confirmModal = new bootstrap.Modal(document.getElementById('confirmModal'));
+        
+        // Remover event listeners anteriores
+        document.getElementById('confirmYes').onclick = null;
+        document.getElementById('confirmNo').onclick = null;
+        
+        // Adicionar novos event listeners
+        document.getElementById('confirmYes').onclick = function() {
+            console.log('✅ Usuário confirmou exclusão do empréstimo:', id);
+            excluirEmprestimo(id);
+            confirmModal.hide();
+        };
+        
+        document.getElementById('confirmNo').onclick = function() {
+            console.log('❌ Usuário cancelou exclusão');
+            confirmModal.hide();
+        };
+        
+        confirmModal.show();
+        
+    } catch (error) {
+        console.error('❌ Erro ao confirmar exclusão:', error);
+        showNotification('Erro ao carregar dados do empréstimo: ' + error.message, 'error');
+    }
 }
-
 // ✅ EXCLUIR EMPRÉSTIMO
 async function excluirEmprestimo(id) {
     try {
@@ -828,3 +838,23 @@ async function excluirEmprestimo(id) {
         showNotification('Erro ao excluir empréstimo: ' + error.message, 'error');
     }
 }
+
+// ✅ FUNÇÃO PARA DEBUG - VER EMPRÉSTIMOS EXISTENTES
+async function debugEmprestimos() {
+    try {
+        const response = await fetch('/api/admin/emprestimos');
+        const emprestimos = await response.json();
+        console.log('📊 EMPRÉSTIMOS EXISTENTES:', emprestimos);
+        
+        // Mostrar IDs disponíveis
+        const ids = emprestimos.map(emp => emp.id);
+        console.log('🆔 IDs disponíveis para exclusão:', ids);
+        
+        return emprestimos;
+    } catch (error) {
+        console.error('Erro no debug:', error);
+    }
+}
+
+// Chame esta função no console para ver os empréstimos
+// debugEmprestimos();
