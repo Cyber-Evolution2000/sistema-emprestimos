@@ -5,13 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Sistema de Empréstimos</title>
     
-    <!-- ✅ CSS -->
     <link rel="stylesheet" href="/css/admin.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     
     <style>
-        /* ✅ ESTILOS DA TELA DE LOGIN */
         .login-container {
             min-height: 100vh;
             background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
@@ -29,12 +27,6 @@
             width: 100%;
             max-width: 400px;
             box-shadow: 0 10px 30px rgba(255, 215, 0, 0.2);
-            animation: fadeIn 0.5s ease-in;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-20px); }
-            to { opacity: 1; transform: translateY(0); }
         }
 
         .login-logo {
@@ -54,11 +46,6 @@
             color: var(--text-light);
         }
 
-        .login-logo p {
-            color: var(--text-gray);
-            font-size: 0.9rem;
-        }
-
         .form-group {
             margin-bottom: 1.5rem;
         }
@@ -75,7 +62,6 @@
             color: var(--text-light);
             padding: 0.75rem 1rem;
             border-radius: 8px;
-            transition: all 0.3s ease;
         }
 
         .form-control:focus {
@@ -83,10 +69,6 @@
             border-color: var(--gold-primary);
             box-shadow: 0 0 0 0.2rem rgba(255, 215, 0, 0.25);
             color: var(--text-light);
-        }
-
-        .form-control::placeholder {
-            color: var(--text-gray);
         }
 
         .btn-login {
@@ -97,17 +79,7 @@
             padding: 0.75rem 2rem;
             border-radius: 8px;
             width: 100%;
-            transition: all 0.3s ease;
             margin-top: 1rem;
-        }
-
-        .btn-login:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(255, 215, 0, 0.4);
-        }
-
-        .btn-login:active {
-            transform: translateY(0);
         }
 
         .login-error {
@@ -121,151 +93,19 @@
             display: none;
         }
 
+        .hidden { 
+            display: none !important; 
+        }
+
         .loading { 
             padding: 20px; 
             text-align: center; 
             color: #FFD700; 
-            background: var(--black-light);
-            border-radius: 10px;
-            margin: 20px;
-        }
-        
-        .hidden { display: none; }
-
-        /* NOTIFICAÇÕES PERSONALIZADAS */
-        .custom-notification {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 9999;
-            min-width: 300px;
-            border-radius: 10px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            animation: slideInRight 0.3s ease-out;
-        }
-        
-        @keyframes slideInRight {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-        
-        .notification-success {
-            background: linear-gradient(135deg, #28a745, #20c997);
-            color: white;
-            border-left: 4px solid #1e7e34;
-        }
-        
-        .notification-error {
-            background: linear-gradient(135deg, #dc3545, #e83e8c);
-            color: white;
-            border-left: 4px solid #bd2130;
-        }
-        
-        .notification-warning {
-            background: linear-gradient(135deg, #ffc107, #fd7e14);
-            color: white;
-            border-left: 4px solid #d39e00;
-        }
-
-        /* ✅ ESTILOS PARA O DASHBOARD */
-        .status-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 1.5rem;
-            margin-bottom: 2rem;
-        }
-
-        .status-card {
-            background: var(--black-light);
-            padding: 1.5rem;
-            border-radius: 12px;
-            border: 1px solid var(--gold-dark);
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-            text-align: center;
-            min-height: 200px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .status-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 4px;
-            height: 100%;
-            background: var(--gold-primary);
-        }
-
-        .status-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(255, 215, 0, 0.2);
-        }
-
-        .status-card .status-badge {
-            background: linear-gradient(135deg, var(--gold-primary) 0%, var(--gold-secondary) 100%);
-            color: var(--black-primary) !important;
-            font-size: 1.3rem !important;
-            font-weight: 700 !important;
-            padding: 0.8rem 1.2rem !important;
-            border-radius: 10px !important;
-            min-width: 70px;
-            text-align: center;
-            border: 2px solid var(--gold-dark);
-            box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
-            transition: all 0.3s ease;
-            margin-top: auto;
-        }
-
-        .status-card:hover .status-badge {
-            transform: scale(1.05);
-            box-shadow: 0 6px 18px rgba(255, 215, 0, 0.4);
-        }
-
-        .status-card h3 {
-            color: var(--text-light) !important;
-            font-size: 1.1rem !important;
-            font-weight: 600 !important;
-            margin-bottom: 0.5rem !important;
-        }
-
-        .status-card p {
-            color: var(--text-gray) !important;
-            font-size: 0.9rem !important;
-            margin-bottom: 1rem !important;
-            line-height: 1.3;
-        }
-
-        .status-icon {
-            font-size: 2.2rem !important;
-            margin-bottom: 1rem !important;
-            color: var(--gold-primary) !important;
-            text-shadow: 0 2px 8px rgba(255, 215, 0, 0.3);
-        }
-
-        /* ✅ RESPONSIVIDADE */
-        @media (max-width: 1200px) {
-            .status-grid { grid-template-columns: repeat(2, 1fr); }
-        }
-
-        @media (max-width: 768px) {
-            .status-grid { grid-template-columns: 1fr; }
-            .login-card { padding: 2rem 1.5rem; }
         }
     </style>
 </head>
 <body>
-    <!-- ✅ TELA DE LOGIN -->
+    <!-- TELA DE LOGIN -->
     <div id="loginScreen" class="login-container">
         <div class="login-card">
             <div class="login-logo">
@@ -276,24 +116,22 @@
 
             <div id="loginError" class="login-error">
                 <i class="fas fa-exclamation-circle"></i>
-                <span id="errorMessage">Credenciais inválidas</span>
+                <span>Credenciais inválidas</span>
             </div>
 
             <form id="loginForm">
                 <div class="form-group">
-                    <label for="username" class="form-label">
+                    <label class="form-label">
                         <i class="fas fa-user"></i> Usuário
                     </label>
-                    <input type="text" class="form-control" id="username" 
-                           placeholder="Digite seu usuário" required>
+                    <input type="text" class="form-control" id="username" placeholder="Digite seu usuário" required>
                 </div>
 
                 <div class="form-group">
-                    <label for="password" class="form-label">
+                    <label class="form-label">
                         <i class="fas fa-key"></i> Senha
                     </label>
-                    <input type="password" class="form-control" id="password" 
-                           placeholder="Digite sua senha" required>
+                    <input type="password" class="form-control" id="password" placeholder="Digite sua senha" required>
                 </div>
 
                 <button type="submit" class="btn-login">
@@ -303,18 +141,15 @@
         </div>
     </div>
 
-    <!-- ✅ CONTEÚDO PRINCIPAL (OCULTO INICIALMENTE) -->
+    <!-- CONTEÚDO PRINCIPAL -->
     <div id="app" class="hidden">
-        <!-- Loading que será removido quando o sistema carregar -->
+        <!-- LOADING SIMPLES -->
         <div class="loading" id="systemLoading">
             <h1>💼 Sistema de Empréstimos</h1>
             <p>Carregando...</p>
-            <div class="spinner-border text-warning mt-3" role="status">
-                <span class="visually-hidden">Carregando...</span>
-            </div>
         </div>
 
-        <!-- Conteúdo real do admin (inicialmente oculto) -->
+        <!-- CONTEÚDO ADMIN (inicia oculto) -->
         <div id="adminContent" class="hidden">
             <div class="admin-container">
                 <!-- SIDEBAR -->
@@ -359,157 +194,37 @@
 
                 <!-- MAIN CONTENT -->
                 <main class="main-content">
-                    <!-- HEADER -->
                     <header class="header">
                         <h2 id="pageTitle">Dashboard</h2>
                         <div class="breadcrumb">Sistema Administrativo</div>
                     </header>
 
-                    <!-- ✅ DASHBOARD SECTION -->
+                    <!-- SEÇÕES DO CONTEÚDO -->
                     <div id="dashboard" class="content-section">
-                        <div class="status-grid">
-                            <div class="status-card">
-                                <div class="status-icon">
-                                    <i class="fas fa-users"></i>
-                                </div>
-                                <h3>Total Clientes</h3>
-                                <p>Clientes cadastrados</p>
-                                <span id="totalClientes" class="status-badge">0</span>
-                            </div>
-                            
-                            <div class="status-card">
-                                <div class="status-icon">
-                                    <i class="fas fa-hand-holding-usd"></i>
-                                </div>
-                                <h3>Empréstimos</h3>
-                                <p>Total de empréstimos</p>
-                                <span id="totalEmprestimos" class="status-badge">0</span>
-                            </div>
-                            
-                            <div class="status-card">
-                                <div class="status-icon">
-                                    <i class="fas fa-clock"></i>
-                                </div>
-                                <h3>Pendentes</h3>
-                                <p>Pagamentos pendentes</p>
-                                <span id="totalPendentes" class="status-badge">0</span>
-                            </div>
-                            
-                            <div class="status-card">
-                                <div class="status-icon">
-                                    <i class="fas fa-exclamation-triangle"></i>
-                                </div>
-                                <h3>Atrasados</h3>
-                                <p>Pagamentos atrasados</p>
-                                <span id="totalAtrasados" class="status-badge">0</span>
-                            </div>
-                        </div>
+                        <!-- Dashboard content -->
                     </div>
 
-                    <!-- ✅ CLIENTES SECTION -->
                     <div id="clientes" class="content-section hidden">
-                        <div class="data-section">
-                            <div class="section-header">
-                                <h3>Gerenciar Clientes</h3>
-                                <button class="btn btn-primary" onclick="abrirModalCliente()">
-                                    <i class="fas fa-plus"></i> Novo Cliente
-                                </button>
-                            </div>
-                            
-                            <div class="table-container">
-                                <table class="data-table">
-                                    <thead>
-                                        <tr>
-                                            <th>CPF</th>
-                                            <th>Nome</th>
-                                            <th>Telefone</th>
-                                            <th>Email</th>
-                                            <th>Empréstimos</th>
-                                            <th>Ações</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="tabelaClientes">
-                                        <!-- Dados carregados via JavaScript -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+                        <!-- Clientes content -->
                     </div>
 
-                    <!-- ✅ EMPRÉSTIMOS SECTION -->
                     <div id="emprestimos" class="content-section hidden">
-                        <div class="data-section">
-                            <div class="section-header">
-                                <h3>Gerenciar Empréstimos</h3>
-                                <button class="btn btn-primary" onclick="abrirModalEmprestimo()">
-                                    <i class="fas fa-plus"></i> Novo Empréstimo
-                                </button>
-                            </div>
-                            
-                            <div class="table-container">
-                                <table class="data-table">
-                                    <thead>
-                                        <tr>
-                                            <th>ID</th>
-                                            <th>Cliente</th>
-                                            <th>Valor</th>
-                                            <th>Parcelas</th>
-                                            <th>Data</th>
-                                            <th>Status</th>
-                                            <th>Taxa Juros</th>
-                                            <th>Ações</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="tabelaEmprestimos">
-                                        <!-- Dados carregados via JavaScript -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+                        <!-- Empréstimos content -->
                     </div>
 
-                    <!-- ✅ PAGAMENTOS SECTION -->
                     <div id="pagamentos" class="content-section hidden">
-                        <div class="data-section">
-                            <div class="section-header">
-                                <h3>Gerenciar Pagamentos</h3>
-                            </div>
-                            
-                            <div class="table-container">
-                                <table class="data-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Cliente</th>
-                                            <th>Empréstimo</th>
-                                            <th>Valor</th>
-                                            <th>Vencimento</th>
-                                            <th>Status</th>
-                                            <th>Ações</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="tabelaPagamentos">
-                                        <!-- Dados carregados via JavaScript -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+                        <!-- Pagamentos content -->
                     </div>
 
-                    <!-- ✅ CONFIGURAÇÕES SECTION -->
                     <div id="settings" class="content-section hidden">
-                        <div class="data-section">
-                            <div class="section-header">
-                                <h3>Configurações do Sistema</h3>
-                            </div>
-                            <p>Configurações em desenvolvimento...</p>
-                        </div>
+                        <!-- Settings content -->
                     </div>
                 </main>
             </div>
         </div>
     </div>
 
-    <!-- ✅ MODAIS -->
+    <!-- MODAIS -->
     <div class="modal fade" id="modalEmprestimo" tabindex="-1" aria-hidden="true">
         <!-- Modal empréstimo -->
     </div>
@@ -522,51 +237,35 @@
         <!-- Modal confirmação -->
     </div>
 
-    <!-- ✅ JAVASCRIPT -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/scripts/admin-novo.js"></script>
     
-    <!-- ✅ SCRIPT DE LOGIN CORRIGIDO -->
     <script>
-        // ✅ CREDENCIAIS SIMPLES E FUNCIONAIS
+        // CREDENCIAIS
         const validCredentials = {
             username: "Admin",
             password: "Admin"
         };
 
-        // ✅ FUNÇÃO DE LOGIN SIMPLES E EFETIVA
+        // FUNÇÃO DE LOGIN
         function validateLogin(username, password) {
-            return username === validCredentials.username && 
-                   password === validCredentials.password;
+            return username === validCredentials.username && password === validCredentials.password;
         }
 
-        // ✅ GERENCIAMENTO DE SESSÃO
+        // GERENCIAMENTO DE SESSÃO
         function setSession() {
             sessionStorage.setItem('admin_logged_in', 'true');
-            sessionStorage.setItem('login_time', new Date().getTime().toString());
-            return true;
         }
 
         function checkSession() {
-            const loggedIn = sessionStorage.getItem('admin_logged_in');
-            const loginTime = sessionStorage.getItem('login_time');
-            
-            if (!loggedIn || !loginTime) return false;
-            
-            // Verifica se a sessão tem menos de 8 horas
-            const currentTime = new Date().getTime();
-            const sessionAge = currentTime - parseInt(loginTime);
-            const eightHours = 8 * 60 * 60 * 1000;
-            
-            return sessionAge < eightHours;
+            return sessionStorage.getItem('admin_logged_in') === 'true';
         }
 
         function clearSession() {
             sessionStorage.removeItem('admin_logged_in');
-            sessionStorage.removeItem('login_time');
         }
 
-        // ✅ EVENTO DE LOGIN
+        // EVENTO DE LOGIN
         document.getElementById('loginForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
@@ -575,34 +274,18 @@
             const errorDiv = document.getElementById('loginError');
             
             if (validateLogin(username, password)) {
-                // Login bem-sucedido
                 setSession();
                 errorDiv.style.display = 'none';
-                
-                // Mostra o sistema
-                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('loginScreen').classList.add('hidden');
                 document.getElementById('app').classList.remove('hidden');
-                
-                // Inicializa o sistema
                 initializeAdminSystem();
-                
             } else {
-                // Login falhou
                 errorDiv.style.display = 'block';
-                document.getElementById('errorMessage').textContent = 'Usuário ou senha incorretos!';
-                
-                // Efeito de shake no formulário
-                this.style.animation = 'shake 0.5s ease-in-out';
-                setTimeout(() => {
-                    this.style.animation = '';
-                }, 500);
-                
-                // Limpa os campos
                 document.getElementById('password').value = '';
             }
         });
 
-        // ✅ FUNÇÃO DE LOGOUT
+        // FUNÇÃO DE LOGOUT
         function logout() {
             if (confirm('Deseja realmente sair do sistema?')) {
                 clearSession();
@@ -610,74 +293,33 @@
             }
         }
 
-        // ✅ INICIALIZAÇÃO DO SISTEMA
+        // INICIALIZAÇÃO SIMPLES DO SISTEMA
         function initializeAdminSystem() {
-            console.log('🚀 Inicializando sistema admin...');
+            console.log('Iniciando sistema...');
             
-            // Verifica se o script admin carregou
-            const checkAdminScript = setInterval(function() {
-                if (typeof showSection !== 'undefined' && typeof atualizarDashboard !== 'undefined') {
-                    clearInterval(checkAdminScript);
-                    
-                    // Sistema carregou com sucesso!
-                    console.log('✅ Sistema admin carregado!');
-                    
-                    // Esconde o loading e mostra o conteúdo
-                    document.getElementById('systemLoading').classList.add('hidden');
-                    document.getElementById('adminContent').classList.remove('hidden');
-                    
-                    // Inicializa o dashboard
-                    try {
-                        atualizarDashboard();
-                        console.log('📊 Dashboard inicializado!');
-                    } catch (error) {
-                        console.error('❌ Erro ao inicializar dashboard:', error);
-                    }
-                    
-                } else {
-                    console.log('⏳ Aguardando carregamento do sistema...');
-                }
-            }, 500); // Verifica a cada 500ms
-
-            // Timeout de segurança - se não carregar em 10 segundos
+            // Espera 1 segundo e depois esconde o loading e mostra o conteúdo
             setTimeout(function() {
-                clearInterval(checkAdminScript);
-                if (typeof showSection === 'undefined') {
-                    console.error('❌ admin-novo.js não carregou dentro do tempo limite');
-                    document.getElementById('systemLoading').innerHTML = `
-                        <div style="padding: 20px; text-align: center;">
-                            <h1 style="color: #FFD700;">⚠️ Erro de Carregamento</h1>
-                            <p>O sistema admin não carregou corretamente.</p>
-                            <button onclick="location.reload()" class="btn btn-warning mt-3">
-                                🔄 Recarregar
-                            </button>
-                        </div>
-                    `;
+                console.log('Escondendo loading...');
+                document.getElementById('systemLoading').classList.add('hidden');
+                document.getElementById('adminContent').classList.remove('hidden');
+                console.log('Loading escondido, conteúdo mostrado');
+                
+                // Se o script admin carregou, inicializa o dashboard
+                if (typeof atualizarDashboard === 'function') {
+                    console.log('Inicializando dashboard...');
+                    atualizarDashboard();
                 }
-            }, 10000); // 10 segundos de timeout
+            }, 1000);
         }
 
-        // ✅ VERIFICA SE JÁ ESTÁ LOGADO AO CARREGAR A PÁGINA
+        // VERIFICA SE JÁ ESTÁ LOGADO
         document.addEventListener('DOMContentLoaded', function() {
             if (checkSession()) {
-                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('loginScreen').classList.add('hidden');
                 document.getElementById('app').classList.remove('hidden');
                 initializeAdminSystem();
-            } else {
-                console.log('💡 Credenciais de teste: Usuário: Admin, Senha: Admin');
             }
         });
-
-        // ✅ ANIMAÇÃO SHAKE PARA ERRO DE LOGIN
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes shake {
-                0%, 100% { transform: translateX(0); }
-                25% { transform: translateX(-10px); }
-                75% { transform: translateX(10px); }
-            }
-        `;
-        document.head.appendChild(style);
     </script>
 </body>
 </html>
