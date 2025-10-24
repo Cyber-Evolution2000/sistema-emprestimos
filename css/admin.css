@@ -464,3 +464,71 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--gold-dark);
 }
+
+/* ===== DASHBOARD STYLES ===== */
+.status-badge {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+/* ✅ ESTILOS PARA OS NÚMEROS DO DASHBOARD */
+.status-card .status-badge {
+    background: linear-gradient(135deg, var(--gold-primary) 0%, var(--gold-secondary) 100%);
+    color: var(--black-primary) !important;
+    font-size: 1.5rem !important;
+    font-weight: 700 !important;
+    padding: 1rem 1.5rem !important;
+    border-radius: 12px !important;
+    min-width: 80px;
+    text-align: center;
+    border: 2px solid var(--gold-dark);
+    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+    transition: all 0.3s ease;
+}
+
+.status-card:hover .status-badge {
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(255, 215, 0, 0.4);
+}
+
+/* ✅ DEIXAR OS TÍTULOS MAIS DESTACADOS TAMBÉM */
+.status-card h3 {
+    color: var(--text-light) !important;
+    font-size: 1.4rem !important;
+    font-weight: 600 !important;
+    margin-bottom: 0.8rem !important;
+}
+
+.status-card p {
+    color: var(--text-gray) !important;
+    font-size: 1rem !important;
+    margin-bottom: 1.5rem !important;
+}
+
+/* ✅ MELHORAR OS ÍCONES */
+.status-icon {
+    font-size: 3rem !important;
+    margin-bottom: 1.5rem !important;
+    color: var(--gold-primary) !important;
+    text-shadow: 0 2px 10px rgba(255, 215, 0, 0.3);
+}
+
+/* ✅ RESPONSIVIDADE PARA MOBILE */
+@media (max-width: 768px) {
+    .status-card .status-badge {
+        font-size: 1.3rem !important;
+        padding: 0.8rem 1.2rem !important;
+    }
+    
+    .status-card h3 {
+        font-size: 1.2rem !important;
+    }
+    
+    .status-icon {
+        font-size: 2.5rem !important;
+    }
+}
