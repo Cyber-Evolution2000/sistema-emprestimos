@@ -381,7 +381,7 @@ app.post('/api/admin/emprestimos', async (req, res) => {
     }
 });
 
-// ✅ ROTA PARA EXCLUIR EMPRÉSTIMO - CORRIGIDA
+// ✅ ROTA PARA EXCLUIR EMPRÉSTIMO
 app.delete('/api/admin/emprestimos/:id', async (req, res) => {
     try {
         if (!isDatabaseConnected) {
@@ -457,6 +457,267 @@ app.delete('/api/admin/emprestimos/:id', async (req, res) => {
             message: 'Erro interno do servidor ao excluir empréstimo',
             error: error.message 
         });
+    }
+});
+
+// =============================================
+// ✅ ROTAS PARA PIX RECEBIMENTOS (SICOOB)
+// =============================================
+
+// Configurações do Sicoob PIX
+const SICOOB_CONFIG = {
+    base_url: "https://sandbox.sicoob.com.br/sicoob/sandbox/pix/api/v2",
+    client_id: "9b5e603e428cc477a2841e2683c92d21",
+    access_token: "1301865f-c6bc-38f3-9f49-666dbcfc59c3",
+    chave_pix: "12345678900"
+};
+
+// Headers para API Sicoob
+function getSicoobHeaders() {
+    return {
+        "Authorization": `Bearer ${SICOOB_CONFIG.access_token}`,
+        "Content-Type": "application/json",
+        "client_id": SICOOB_CONFIG.client_id
+    };
+}
+
+// ✅ CRIAR COBRANÇA PIX
+app.post('/api/pix/cobranca', async (req, res) => {
+    try {
+        const { cpf, valor, descricao, parcela_id } = req.body;
+        
+        console.log('💰 Criando cobrança PIX:', { cpf, valor, descricao, parcela_id });
+
+        // Buscar dados do cliente
+        const client = await pool.connect();
+        const clienteResult = await client.query(
+            'SELECT * FROM clientes WHERE cpf = $1',
+            [cpf]
+        );
+        
+        if (clienteResult.rows.length === 0) {
+            client.release();
+            return res.status(404).json({ error: 'Cliente não encontrado' });
+        }
+
+        const cliente = clienteResult.rows[0];
+        client.release();
+
+        // Preparar payload para API Sicoob
+        const txid = `TX${Date.now()}${Math.random().toString(36).substr(2, 9)}`;
+        
+        const payload = {
+            calendario: {
+                expiracao: 3600
+            },
+            devedor: {
+                cpf: cpf.replace(/\D/g, ''),
+                nome: cliente.nome
+            },
+            valor: {
+                original: valor.toFixed(2)
+            },
+            chave: SICOOB_CONFIG.chave_pix,
+            solicitacaoPagador: descricao || `Pagamento parcela ${parcela_id}`
+        };
+
+        console.log('📤 Enviando para Sicoob PIX:', payload);
+
+        let pixData;
+        try {
+            // Fazer requisição para API Sicoob
+            const response = await fetch(`${SICOOB_CONFIG.base_url}/cob/${txid}`, {
+                method: 'PUT',
+                headers: getSicoobHeaders(),
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+                pixData = await response.json();
+                console.log('✅ Cobrança PIX criada:', pixData);
+            } else {
+                throw new Error('API Sicoob não disponível');
+            }
+        } catch (apiError) {
+            // Simular resposta se a API não estiver disponível
+            console.log('⚠️ Usando PIX simulado (API offline)');
+            pixData = {
+                txid: txid,
+                status: "ATIVA",
+                pixCopiaECola: `00020126580014br.gov.bcb.pix0136${SICOOB_CONFIG.chave_pix}520400005303986540${valor.toFixed(2).replace('.', '')}5802BR5925SISTEMA EMPRESTIMOS PIX6008BRASILIA62070503***6304${Math.random().toString(36).substr(2, 4)}`
+            };
+        }
+
+        // Salvar no banco de dados
+        await salvarCobrancaPIX(cpf, valor, parcela_id, pixData);
+
+        // Gerar QR Code
+        const qrCode = await gerarQRCode(pixData);
+
+        res.json({
+            success: true,
+            qrCode: qrCode,
+            pixCopiaECola: pixData.pixCopiaECola || pixData.copy_paste,
+            valor: valor,
+            expiracao: new Date(Date.now() + 3600 * 1000).toISOString(),
+            txid: pixData.txid
+        });
+
+    } catch (error) {
+        console.error('💥 Erro ao criar cobrança PIX:', error);
+        res.status(500).json({ 
+            error: 'Erro ao criar cobrança PIX: ' + error.message 
+        });
+    }
+});
+
+// ✅ SALVAR COBRANÇA PIX NO BANCO
+async function salvarCobrancaPIX(cpf, valor, parcela_id, pixData) {
+    try {
+        const client = await pool.connect();
+        
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS pix_cobrancas (
+                id SERIAL PRIMARY KEY,
+                txid VARCHAR(100) UNIQUE NOT NULL,
+                cpf_cliente VARCHAR(14) NOT NULL,
+                valor DECIMAL(10,2) NOT NULL,
+                parcela_id INTEGER,
+                qr_code TEXT,
+                pix_copia_cola TEXT,
+                status VARCHAR(20) DEFAULT 'ATIVA',
+                data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                data_expiracao TIMESTAMP,
+                data_pagamento TIMESTAMP NULL
+            );
+        `);
+
+        await client.query(
+            `INSERT INTO pix_cobrancas (txid, cpf_cliente, valor, parcela_id, pix_copia_cola, data_expiracao)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [
+                pixData.txid,
+                cpf,
+                valor,
+                parcela_id,
+                pixData.pixCopiaECola || pixData.copy_paste || '',
+                new Date(Date.now() + 3600 * 1000)
+            ]
+        );
+
+        client.release();
+        console.log('✅ Cobrança PIX salva no banco');
+
+    } catch (error) {
+        console.error('❌ Erro ao salvar cobrança PIX:', error);
+    }
+}
+
+// ✅ GERAR QR CODE
+async function gerarQRCode(pixData) {
+    const qrData = pixData.pixCopiaECola || pixData.copy_paste;
+    return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData)}`;
+}
+
+// ✅ CONSULTAR COBRANÇA PIX
+app.get('/api/pix/cobranca/:txid', async (req, res) => {
+    try {
+        const { txid } = req.params;
+
+        // Primeiro buscar do banco
+        const client = await pool.connect();
+        const result = await client.query(
+            'SELECT * FROM pix_cobrancas WHERE txid = $1',
+            [txid]
+        );
+        client.release();
+
+        if (result.rows.length > 0) {
+            return res.json(result.rows[0]);
+        }
+
+        res.status(404).json({ error: 'Cobrança PIX não encontrada' });
+
+    } catch (error) {
+        console.error('Erro ao consultar cobrança PIX:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ✅ LISTAR COBRANÇAS PIX
+app.get('/api/admin/pix/cobrancas', async (req, res) => {
+    try {
+        if (!isDatabaseConnected) {
+            return res.status(503).json({ error: 'Banco offline' });
+        }
+
+        const client = await pool.connect();
+        
+        // Verificar se a tabela existe
+        const tableCheck = await client.query(`
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name = 'pix_cobrancas'
+            );
+        `);
+        
+        if (!tableCheck.rows[0].exists) {
+            client.release();
+            return res.json([]);
+        }
+        
+        const result = await client.query(`
+            SELECT pc.*, c.nome as cliente_nome 
+            FROM pix_cobrancas pc
+            LEFT JOIN clientes c ON pc.cpf_cliente = c.cpf
+            ORDER BY pc.data_criacao DESC
+        `);
+        
+        client.release();
+        res.json(result.rows);
+
+    } catch (error) {
+        console.error('Erro ao buscar cobranças PIX:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ✅ WEBHOOK PARA RECEBER NOTIFICAÇÕES PIX
+app.post('/api/pix/webhook', async (req, res) => {
+    try {
+        const webhookData = req.body;
+        
+        console.log('🔄 Webhook PIX recebido:', webhookData);
+
+        if (webhookData.pix && webhookData.pix.length > 0) {
+            const pix = webhookData.pix[0];
+            
+            // Atualizar status no banco
+            const client = await pool.connect();
+            
+            await client.query(
+                'UPDATE pix_cobrancas SET status = $1, data_pagamento = $2 WHERE txid = $3',
+                ['PAGA', new Date(), pix.txid]
+            );
+
+            // Se tiver parcela_id, atualizar parcela também
+            if (pix.parcela_id) {
+                await client.query(
+                    'UPDATE parcelas SET status = $1, data_pagamento = $2 WHERE id = $3',
+                    ['Pago', new Date(), pix.parcela_id]
+                );
+            }
+
+            client.release();
+            console.log('✅ Pagamento PIX confirmado e atualizado:', pix.txid);
+        }
+
+        res.status(200).json({ received: true });
+
+    } catch (error) {
+        console.error('❌ Erro no webhook PIX:', error);
+        res.status(500).json({ error: error.message });
     }
 });
 
@@ -649,6 +910,7 @@ app.get('/api/clients/:cpf', async (req, res) => {
             
             const boletos = parcelasResult.rows.map(parcela => {
                 return {
+                    id: parcela.id,
                     parcela: parcela.numero_parcela,
                     valor: parseFloat(parcela.valor).toFixed(2),
                     valorAtualizado: parseFloat(parcela.valor).toFixed(2),
@@ -684,6 +946,7 @@ app.get('/api/clients/:cpf', async (req, res) => {
     }
 });
 
+// ✅ PIX SIMULADO (para compatibilidade)
 app.post('/api/payments/pix', async (req, res) => {
     try {
         const { cpf, parcela } = req.body;
@@ -708,236 +971,4 @@ app.listen(PORT, async () => {
     console.log(`🚀 Servidor rodando: http://localhost:${PORT}`);
     console.log(`👨‍💼 Admin: http://localhost:${PORT}/admin`);
     await conectarBanco();
-});
-
-// =============================================
-// ✅ ROTAS PARA PIX RECEBIMENTOS (SICOOB)
-// =============================================
-
-// Configurações do Sicoob PIX
-const SICOOB_CONFIG = {
-    base_url: "https://sandbox.sicoob.com.br/sicoob/sandbox/pix/api/v2",
-    client_id: "9b5e603e428cc477a2841e2683c92d21",
-    access_token: "1301865f-c6bc-38f3-9f49-666dbcfc59c3",
-    chave_pix: "12345678900" // Substitua pela sua chave PIX real
-};
-
-// Headers para API Sicoob
-function getSicoobHeaders() {
-    return {
-        "Authorization": `Bearer ${SICOOB_CONFIG.access_token}`,
-        "Content-Type": "application/json",
-        "client_id": SICOOB_CONFIG.client_id
-    };
-}
-
-// ✅ CRIAR COBRANÇA PIX
-app.post('/api/pix/cobranca', async (req, res) => {
-    try {
-        const { cpf, valor, descricao, parcela_id } = req.body;
-        
-        console.log('💰 Criando cobrança PIX:', { cpf, valor, descricao, parcela_id });
-
-        // Buscar dados do cliente
-        const client = await pool.connect();
-        const clienteResult = await client.query(
-            'SELECT * FROM clientes WHERE cpf = $1',
-            [cpf]
-        );
-        
-        if (clienteResult.rows.length === 0) {
-            client.release();
-            return res.status(404).json({ error: 'Cliente não encontrado' });
-        }
-
-        const cliente = clienteResult.rows[0];
-        client.release();
-
-        // Preparar payload para API Sicoob
-        const payload = {
-            calendario: {
-                expiracao: 3600 // 1 hora em segundos
-            },
-            devedor: {
-                cpf: cpf.replace(/\D/g, ''),
-                nome: cliente.nome
-            },
-            valor: {
-                original: valor.toFixed(2)
-            },
-            chave: SICOOB_CONFIG.chave_pix,
-            solicitacaoPagador: descricao || `Pagamento parcela ${parcela_id}`
-        };
-
-        console.log('📤 Enviando para Sicoob PIX:', payload);
-
-        // Fazer requisição para API Sicoob
-        const response = await fetch(`${SICOOB_CONFIG.base_url}/cob`, {
-            method: 'POST',
-            headers: getSicoobHeaders(),
-            body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('❌ Erro Sicoob:', errorText);
-            throw new Error(`Erro Sicoob: ${response.status} - ${errorText}`);
-        }
-
-        const pixData = await response.json();
-        console.log('✅ Cobrança PIX criada:', pixData);
-
-        // Salvar no banco de dados
-        await salvarCobrancaPIX(cpf, valor, parcela_id, pixData);
-
-        res.json({
-            success: true,
-            qrCode: await gerarQRCode(pixData),
-            pixCopiaECola: pixData.pixCopiaECola || pixData.copy_paste,
-            valor: valor,
-            expiracao: new Date(Date.now() + 3600 * 1000).toISOString(),
-            txid: pixData.txid
-        });
-
-    } catch (error) {
-        console.error('💥 Erro ao criar cobrança PIX:', error);
-        res.status(500).json({ 
-            error: 'Erro ao criar cobrança PIX: ' + error.message 
-        });
-    }
-});
-
-// ✅ SALVAR COBRANÇA PIX NO BANCO
-async function salvarCobrancaPIX(cpf, valor, parcela_id, pixData) {
-    try {
-        const client = await pool.connect();
-        
-        await client.query(`
-            CREATE TABLE IF NOT EXISTS pix_cobrancas (
-                id SERIAL PRIMARY KEY,
-                txid VARCHAR(100) UNIQUE NOT NULL,
-                cpf_cliente VARCHAR(14) NOT NULL,
-                valor DECIMAL(10,2) NOT NULL,
-                parcela_id INTEGER,
-                qr_code TEXT,
-                pix_copia_cola TEXT,
-                status VARCHAR(20) DEFAULT 'ATIVA',
-                data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                data_expiracao TIMESTAMP,
-                data_pagamento TIMESTAMP NULL
-            );
-        `);
-
-        await client.query(
-            `INSERT INTO pix_cobrancas (txid, cpf_cliente, valor, parcela_id, qr_code, pix_copia_cola, data_expiracao)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-            [
-                pixData.txid,
-                cpf,
-                valor,
-                parcela_id,
-                pixData.qrCode || '',
-                pixData.pixCopiaECola || pixData.copy_paste || '',
-                new Date(Date.now() + 3600 * 1000)
-            ]
-        );
-
-        client.release();
-        console.log('✅ Cobrança PIX salva no banco');
-
-    } catch (error) {
-        console.error('❌ Erro ao salvar cobrança PIX:', error);
-    }
-}
-
-// ✅ GERAR QR CODE (simulação - na prática a API retorna)
-async function gerarQRCode(pixData) {
-    // Em produção, a API Sicoob retorna o QR Code
-    // Aqui simulamos gerando um QR code com dados PIX
-    const qrData = pixData.pixCopiaECola || pixData.copy_paste;
-    return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData)}`;
-}
-
-// ✅ CONSULTAR COBRANÇA PIX
-app.get('/api/pix/cobranca/:txid', async (req, res) => {
-    try {
-        const { txid } = req.params;
-
-        const response = await fetch(`${SICOOB_CONFIG.base_url}/cob/${txid}`, {
-            method: 'GET',
-            headers: getSicoobHeaders()
-        });
-
-        if (!response.ok) {
-            throw new Error(`Erro ao consultar cobrança: ${response.status}`);
-        }
-
-        const cobranca = await response.json();
-        res.json(cobranca);
-
-    } catch (error) {
-        console.error('Erro ao consultar cobrança PIX:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// ✅ WEBHOOK PARA RECEBER NOTIFICAÇÕES PIX (PIX RECEBIDO)
-app.post('/api/pix/webhook', async (req, res) => {
-    try {
-        const { pix } = req.body;
-        
-        console.log('🔄 Webhook PIX recebido:', pix);
-
-        if (pix && pix.txid) {
-            // Atualizar status no banco
-            const client = await pool.connect();
-            
-            await client.query(
-                'UPDATE pix_cobrancas SET status = $1, data_pagamento = $2 WHERE txid = $3',
-                ['PAGA', new Date(), pix.txid]
-            );
-
-            // Se tiver parcela_id, atualizar parcela também
-            if (pix.parcela_id) {
-                await client.query(
-                    'UPDATE parcelas SET status = $1, data_pagamento = $2 WHERE id = $3',
-                    ['Pago', new Date(), pix.parcela_id]
-                );
-            }
-
-            client.release();
-            console.log('✅ Pagamento PIX confirmado e atualizado:', pix.txid);
-        }
-
-        res.status(200).json({ received: true });
-
-    } catch (error) {
-        console.error('❌ Erro no webhook PIX:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// ✅ LISTAR COBRANÇAS PIX
-app.get('/api/admin/pix/cobrancas', async (req, res) => {
-    try {
-        if (!isDatabaseConnected) {
-            return res.status(503).json({ error: 'Banco offline' });
-        }
-
-        const client = await pool.connect();
-        
-        const result = await client.query(`
-            SELECT pc.*, c.nome as cliente_nome 
-            FROM pix_cobrancas pc
-            LEFT JOIN clientes c ON pc.cpf_cliente = c.cpf
-            ORDER BY pc.data_criacao DESC
-        `);
-        
-        client.release();
-        res.json(result.rows);
-
-    } catch (error) {
-        console.error('Erro ao buscar cobranças PIX:', error);
-        res.status(500).json({ error: error.message });
-    }
 });

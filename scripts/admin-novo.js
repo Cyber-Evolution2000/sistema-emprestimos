@@ -39,6 +39,7 @@ function showSection(sectionId, event) {
         'clientes': 'Gerenciar Clientes', 
         'emprestimos': 'Gerenciar Empréstimos',
         'pagamentos': 'Gerenciar Pagamentos',
+        'pix': 'PIX Recebimentos',
         'settings': 'Configurações'
     };
     
@@ -61,20 +62,14 @@ function showSection(sectionId, event) {
         case 'pagamentos':
             carregarPagamentos();
             break;
+        case 'pix':
+            carregarCobrancasPIX();
+            break;
         case 'settings':
             // Nada por enquanto
             break;
     }
 }
-
-const titles = {
-    'dashboard': 'Dashboard',
-    'clientes': 'Gerenciar Clientes', 
-    'emprestimos': 'Gerenciar Empréstimos',
-    'pagamentos': 'Gerenciar Pagamentos',
-    'pix': 'PIX Recebimentos', // ← ADICIONE ESTA LINHA
-    'settings': 'Configurações'
-};
 
 // ✅ CARREGAR CLIENTES - BANCO APENAS
 async function carregarClientes() {
@@ -715,6 +710,7 @@ async function confirmarExclusaoEmprestimo(id) {
         showNotification('Erro ao carregar dados do empréstimo: ' + error.message, 'error');
     }
 }
+
 // ✅ EXCLUIR EMPRÉSTIMO
 async function excluirEmprestimo(id) {
     try {
@@ -829,108 +825,11 @@ async function atualizarDashboard() {
     }
 }
 
-// ✅ SISTEMA DE NOTIFICAÇÕES
-function showNotification(message, type = 'success', duration = 4000) {
-    // Remover notificação anterior se existir
-    const existingNotification = document.querySelector('.custom-notification');
-    if (existingNotification) {
-        existingNotification.remove();
-    }
-    
-    // Criar nova notificação
-    const notification = document.createElement('div');
-    notification.className = `custom-notification notification-${type}`;
-    notification.innerHTML = `
-        <div class="d-flex align-items-center p-3">
-            <div class="flex-grow-1">
-                <strong>${type === 'success' ? '✅ Sucesso!' : type === 'error' ? '❌ Erro!' : '⚠️ Aviso!'}</strong>
-                <div class="small">${message}</div>
-            </div>
-            <button type="button" class="btn-close btn-close-white ms-2" onclick="this.parentElement.parentElement.remove()"></button>
-        </div>
-    `;
-    
-    document.body.appendChild(notification);
-    
-    // Auto-remover após o tempo definido
-    setTimeout(() => {
-        if (notification.parentElement) {
-            notification.remove();
-        }
-    }, duration);
-}
-
-// ✅ INICIALIZAÇÃO
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🔒 Sistema admin inicializado - BANCO DE DADOS APENAS');
-    atualizarDashboard();
-});
-
-// ✅ EXCLUIR EMPRÉSTIMO - COM DEBUG
-async function excluirEmprestimo(id) {
-    try {
-        console.log('🗑️ Tentando excluir empréstimo:', id);
-        
-        const url = `/api/admin/emprestimos/${id}`;
-        console.log('📤 URL da requisição:', url);
-        
-        const response = await fetch(url, {
-            method: 'DELETE'
-        });
-        
-        console.log('📥 Resposta do servidor:', {
-            status: response.status,
-            statusText: response.statusText,
-            ok: response.ok
-        });
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('❌ Erro detalhado:', errorText);
-            
-            if (response.status === 404) {
-                throw new Error('Empréstimo não encontrado no servidor');
-            } else if (response.status === 500) {
-                throw new Error('Erro interno do servidor');
-            }
-            throw new Error(`Erro ${response.status}: ${response.statusText} - ${errorText}`);
-        }
-        
-        const result = await response.json();
-        console.log('✅ Resultado da exclusão:', result);
-        
-        showNotification('Empréstimo excluído com sucesso!', 'success');
-        carregarEmprestimos();
-        
-    } catch (error) {
-        console.error('❌ Erro completo ao excluir empréstimo:', error);
-        showNotification('Erro ao excluir empréstimo: ' + error.message, 'error');
-    }
-}
-
-// ✅ FUNÇÃO PARA DEBUG - VER EMPRÉSTIMOS EXISTENTES
-async function debugEmprestimos() {
-    try {
-        const response = await fetch('/api/admin/emprestimos');
-        const emprestimos = await response.json();
-        console.log('📊 EMPRÉSTIMOS EXISTENTES:', emprestimos);
-        
-        // Mostrar IDs disponíveis
-        const ids = emprestimos.map(emp => emp.id);
-        console.log('🆔 IDs disponíveis para exclusão:', ids);
-        
-        return emprestimos;
-    } catch (error) {
-        console.error('Erro no debug:', error);
-    }
-}
-
-// Chame esta função no console para ver os empréstimos
-// debugEmprestimos();
-
 // ✅ CARREGAR COBRANÇAS PIX
 async function carregarCobrancasPIX() {
     try {
+        console.log('🔄 Buscando cobranças PIX...');
+        
         const response = await fetch('/api/admin/pix/cobrancas');
         
         if (!response.ok) {
@@ -942,19 +841,24 @@ async function carregarCobrancasPIX() {
         
     } catch (error) {
         console.error('Erro ao carregar cobranças PIX:', error);
-        document.getElementById('tabelaPix').innerHTML = `
-            <tr>
-                <td colspan="7" class="text-center text-danger py-4">
-                    Erro ao carregar cobranças PIX: ${error.message}
-                </td>
-            </tr>
-        `;
+        const tbody = document.getElementById('tabelaPix');
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center text-danger py-4">
+                        Erro ao carregar cobranças PIX: ${error.message}
+                    </td>
+                </tr>
+            `;
+        }
     }
 }
 
 // ✅ EXIBIR COBRANÇAS PIX
 function exibirCobrancasPIX(cobrancas) {
     const tbody = document.getElementById('tabelaPix');
+    if (!tbody) return;
+    
     tbody.innerHTML = '';
 
     if (cobrancas.length === 0) {
@@ -984,8 +888,8 @@ function exibirCobrancasPIX(cobrancas) {
                     <small class="text-muted">${cobranca.cpf_cliente}</small>
                 </td>
                 <td>R$ ${parseFloat(cobranca.valor || 0).toFixed(2)}</td>
-                <td><small class="text-muted">${cobranca.txid}</small></td>
-                <td><span class="badge ${statusClass}">${cobranca.status}</span></td>
+                <td><small class="text-muted">${cobranca.txid || 'N/A'}</small></td>
+                <td><span class="badge ${statusClass}">${cobranca.status || 'N/A'}</span></td>
                 <td>${dataCriacao}</td>
                 <td>${dataPagamento}</td>
                 <td>
@@ -1023,7 +927,44 @@ async function consultarPIX(txid) {
     }
 }
 
-// ✅ ADICIONAR NO CASE NA FUNÇÃO showSection
-case 'pix':
-    carregarCobrancasPIX();
-    break;
+// ✅ VER DETALHES PIX
+function verDetalhesPIX(txid) {
+    showNotification(`Detalhes do PIX ${txid} - Em desenvolvimento`, 'info');
+}
+
+// ✅ SISTEMA DE NOTIFICAÇÕES
+function showNotification(message, type = 'success', duration = 4000) {
+    // Remover notificação anterior se existir
+    const existingNotification = document.querySelector('.custom-notification');
+    if (existingNotification) {
+        existingNotification.remove();
+    }
+    
+    // Criar nova notificação
+    const notification = document.createElement('div');
+    notification.className = `custom-notification notification-${type}`;
+    notification.innerHTML = `
+        <div class="d-flex align-items-center p-3">
+            <div class="flex-grow-1">
+                <strong>${type === 'success' ? '✅ Sucesso!' : type === 'error' ? '❌ Erro!' : '⚠️ Aviso!'}</strong>
+                <div class="small">${message}</div>
+            </div>
+            <button type="button" class="btn-close btn-close-white ms-2" onclick="this.parentElement.parentElement.remove()"></button>
+        </div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto-remover após o tempo definido
+    setTimeout(() => {
+        if (notification.parentElement) {
+            notification.remove();
+        }
+    }, duration);
+}
+
+// ✅ INICIALIZAÇÃO
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🔒 Sistema admin inicializado - BANCO DE DADOS APENAS');
+    atualizarDashboard();
+});

@@ -243,8 +243,6 @@
     }
 }
 
-
-
     </style>
 </head>
 <body>
@@ -279,16 +277,16 @@
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a href="#" class="nav-link" onclick="showSection('pix', event)">
+                            <i class="fas fa-qrcode"></i> PIX Recebimentos
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a href="#" class="nav-link" onclick="showSection('settings', event)">
                             <i class="fas fa-cog"></i> Configurações
                         </a>
                     </li>
                 </ul>
-                <li class="nav-item">
-    <a href="#" class="nav-link" onclick="showSection('pix', event)">
-        <i class="fas fa-qrcode"></i> PIX Recebimentos
-    </a>
-</li>
             </aside>
 
             <!-- MAIN CONTENT -->
@@ -340,37 +338,6 @@
                     </div>
                 </div>
 
-                <!-- ✅ PIX SECTION -->
-<div id="pix" class="content-section hidden">
-    <div class="data-section">
-        <div class="section-header">
-            <h3>Gerenciar PIX Recebimentos</h3>
-            <button class="btn btn-success" onclick="abrirModalPIX()">
-                <i class="fas fa-plus"></i> Nova Cobrança PIX
-            </button>
-        </div>
-        
-        <div class="table-container">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Cliente</th>
-                        <th>Valor</th>
-                        <th>TXID</th>
-                        <th>Status</th>
-                        <th>Criação</th>
-                        <th>Pagamento</th>
-                        <th>Ações</th>
-                    </tr>
-                </thead>
-                <tbody id="tabelaPix">
-                    <!-- Dados carregados via JavaScript -->
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
                 <!-- ✅ CLIENTES SECTION -->
                 <div id="clientes" class="content-section hidden">
                     <div class="data-section">
@@ -401,37 +368,37 @@
                     </div>
                 </div>
 
-<!-- ✅ EMPRÉSTIMOS SECTION -->
-<div id="emprestimos" class="content-section hidden">
-    <div class="data-section">
-        <div class="section-header">
-            <h3>Gerenciar Empréstimos</h3>
-            <button class="btn btn-primary" onclick="abrirModalEmprestimo()">
-                <i class="fas fa-plus"></i> Novo Empréstimo
-            </button>
-        </div>
-        
-        <div class="table-container">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Cliente</th>
-                        <th>Valor</th>
-                        <th>Parcelas</th>
-                        <th>Data</th>
-                        <th>Status</th>
-                        <th>Taxa Juros</th>
-                        <th>Ações</th>
-                    </tr>
-                </thead>
-                <tbody id="tabelaEmprestimos">
-                    <!-- Dados carregados via JavaScript -->
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
+                <!-- ✅ EMPRÉSTIMOS SECTION -->
+                <div id="emprestimos" class="content-section hidden">
+                    <div class="data-section">
+                        <div class="section-header">
+                            <h3>Gerenciar Empréstimos</h3>
+                            <button class="btn btn-primary" onclick="abrirModalEmprestimo()">
+                                <i class="fas fa-plus"></i> Novo Empréstimo
+                            </button>
+                        </div>
+                        
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Cliente</th>
+                                        <th>Valor</th>
+                                        <th>Parcelas</th>
+                                        <th>Data</th>
+                                        <th>Status</th>
+                                        <th>Taxa Juros</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabelaEmprestimos">
+                                    <!-- Dados carregados via JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- ✅ PAGAMENTOS SECTION -->
                 <div id="pagamentos" class="content-section hidden">
@@ -453,6 +420,34 @@
                                     </tr>
                                 </thead>
                                 <tbody id="tabelaPagamentos">
+                                    <!-- Dados carregados via JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ✅ PIX SECTION -->
+                <div id="pix" class="content-section hidden">
+                    <div class="data-section">
+                        <div class="section-header">
+                            <h3>Gerenciar PIX Recebimentos</h3>
+                        </div>
+                        
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Cliente</th>
+                                        <th>Valor</th>
+                                        <th>TXID</th>
+                                        <th>Status</th>
+                                        <th>Criação</th>
+                                        <th>Pagamento</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabelaPix">
                                     <!-- Dados carregados via JavaScript -->
                                 </tbody>
                             </table>
@@ -643,9 +638,6 @@
                 atualizarDashboard();
             }
         });
-
-
-        
     </script>
 </body>
 </html>
