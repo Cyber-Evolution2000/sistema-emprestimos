@@ -545,52 +545,138 @@
     });
     
     async function mostrarQRCode(cpf, numeroParcela, valor, nomeCliente) {
-        try {
-            const pixData = await gerarPIX(cpf, numeroParcela);
-            
-            const modalHTML = `
-                <div class="modal fade" id="qrcodeModal" tabindex="-1">
-                    <div class="modal-dialog modal-dialog-centered">
-                        <div class="modal-content" style="background-color: var(--dark-gray); border: 2px solid var(--gold);">
-                            <div class="modal-header" style="border-bottom: 1px solid var(--gold);">
-                                <h5 class="modal-title" style="color: var(--gold);">Pagamento via PIX</h5>
-                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                            </div>
-                            <div class="modal-body text-center">
+    try {
+        console.log('💰 Gerando PIX real para:', { cpf, numeroParcela, valor });
+        
+        // Buscar o ID real da parcela no banco
+        const parcelaId = await buscarIdParcela(cpf, numeroParcela);
+        
+        const response = await fetch('/api/pix/cobranca', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                cpf: cpf,
+                valor: valor,
+                descricao: `Parcela ${numeroParcela} - ${nomeCliente}`,
+                parcela_id: parcelaId
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Erro ao gerar PIX: ' + response.statusText);
+        }
+
+        const pixData = await response.json();
+        console.log('✅ PIX gerado:', pixData);
+
+        // Mostrar modal com QR Code real
+        const modalHTML = `
+            <div class="modal fade" id="qrcodeModal" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content" style="background-color: var(--dark-gray); border: 2px solid var(--gold);">
+                        <div class="modal-header" style="border-bottom: 1px solid var(--gold);">
+                            <h5 class="modal-title" style="color: var(--gold);">
+                                <i class="fas fa-qrcode"></i> Pagamento via PIX
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body text-center">
+                            <div class="mb-3">
                                 <p><strong>${nomeCliente}</strong></p>
                                 <p>Parcela ${numeroParcela} - <strong class="valor-atualizado">R$ ${valor.toFixed(2)}</strong></p>
-                                <div class="qrcode-container">
-                                    <img src="${pixData.qrCode}" alt="QR Code PIX" class="img-fluid" style="max-width: 200px;">
+                                <small class="text-warning">⏰ Válido por 1 hora</small>
+                            </div>
+                            
+                            <div class="qrcode-container">
+                                <img src="${pixData.qrCode}" alt="QR Code PIX" class="img-fluid" style="max-width: 250px; border: 2px solid #32BCAD; border-radius: 10px;">
+                                <p class="small mt-2">Escaneie com seu app bancário</p>
+                            </div>
+                            
+                            <div class="mt-4">
+                                <p class="small mb-2"><strong>PIX Copia e Cola:</strong></p>
+                                <div class="input-group">
+                                    <textarea class="form-control small" rows="3" readonly style="font-size: 0.8rem; background: var(--light-gray); color: white;">${pixData.pixCopiaECola}</textarea>
+                                    <button class="btn btn-outline-success" type="button" onclick="copiarPixCopiaCola()">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
                                 </div>
-                                <div class="mt-3">
-                                    <p class="small mb-2"><strong>PIX Copia e Cola:</strong></p>
-                                    <textarea class="form-control small" rows="3" readonly style="font-size: 0.8rem;">${pixData.pixCopiaECola}</textarea>
-                                </div>
-                                <p class="small mt-3">Escaneie o QR Code ou copie o código PIX</p>
+                                <small class="text-muted">Copie o código e cole no seu app bancário</small>
+                            </div>
+                            
+                            <div class="mt-3 p-2 bg-dark rounded">
+                                <small class="text-info">
+                                    <i class="fas fa-info-circle"></i> 
+                                    Pagamento processado via Sicoob PIX
+                                </small>
                             </div>
                         </div>
                     </div>
                 </div>
-            `;
-            
-            if (!document.getElementById('qrcodeModal')) {
-                document.body.insertAdjacentHTML('beforeend', modalHTML);
-            } else {
-                document.getElementById('qrcodeModal').remove();
-                document.body.insertAdjacentHTML('beforeend', modalHTML);
-            }
-            
-            const modal = new bootstrap.Modal(document.getElementById('qrcodeModal'));
-            modal.show();
-            
-        } catch (error) {
-            alert('Erro ao gerar PIX: ' + error.message);
+            </div>
+        `;
+
+        if (!document.getElementById('qrcodeModal')) {
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+        } else {
+            document.getElementById('qrcodeModal').remove();
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
         }
+
+        const modal = new bootstrap.Modal(document.getElementById('qrcodeModal'));
+        modal.show();
+
+    } catch (error) {
+        console.error('❌ Erro ao gerar PIX:', error);
+        alert('Erro ao gerar PIX: ' + error.message);
     }
-    
-    document.getElementById('cpf').addEventListener('input', function(e) {
-        this.value = this.value.replace(/\D/g, '');
-    });
+}
+
+// ✅ FUNÇÃO AUXILIAR PARA BUSCAR ID DA PARCELA
+async function buscarIdParcela(cpf, numeroParcela) {
+    try {
+        const response = await fetch(`/api/clients/${cpf}`);
+        if (!response.ok) return null;
+        
+        const cliente = await response.json();
+        
+        // Encontrar o ID da parcela específica
+        for (const emprestimo of cliente.emprestimos || []) {
+            for (const parcela of emprestimo.boletos || []) {
+                if (parcela.parcela === numeroParcela) {
+                    return parcela.id; // Assumindo que a parcela tem um ID
+                }
+            }
+        }
+        return null;
+    } catch (error) {
+        console.error('Erro ao buscar ID da parcela:', error);
+        return null;
+    }
+}
+
+// ✅ FUNÇÃO PARA COPIAR PIX COPIAR E COLAR
+function copiarPixCopiaCola() {
+    const textarea = document.querySelector('#qrcodeModal textarea');
+    if (textarea) {
+        textarea.select();
+        document.execCommand('copy');
+        
+        // Mostrar feedback
+        const btn = document.querySelector('#qrcodeModal .btn-outline-success');
+        const originalHTML = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i> Copiado!';
+        btn.classList.remove('btn-outline-success');
+        btn.classList.add('btn-success');
+        
+        setTimeout(() => {
+            btn.innerHTML = originalHTML;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline-success');
+        }, 2000);
+    }
+}
 </script>
 </body>
 </html>

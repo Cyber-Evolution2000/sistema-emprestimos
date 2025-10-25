@@ -243,6 +243,8 @@
     }
 }
 
+
+
     </style>
 </head>
 <body>
@@ -282,6 +284,11 @@
                         </a>
                     </li>
                 </ul>
+                <li class="nav-item">
+    <a href="#" class="nav-link" onclick="showSection('pix', event)">
+        <i class="fas fa-qrcode"></i> PIX Recebimentos
+    </a>
+</li>
             </aside>
 
             <!-- MAIN CONTENT -->
@@ -332,6 +339,37 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- ✅ PIX SECTION -->
+<div id="pix" class="content-section hidden">
+    <div class="data-section">
+        <div class="section-header">
+            <h3>Gerenciar PIX Recebimentos</h3>
+            <button class="btn btn-success" onclick="abrirModalPIX()">
+                <i class="fas fa-plus"></i> Nova Cobrança PIX
+            </button>
+        </div>
+        
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Cliente</th>
+                        <th>Valor</th>
+                        <th>TXID</th>
+                        <th>Status</th>
+                        <th>Criação</th>
+                        <th>Pagamento</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="tabelaPix">
+                    <!-- Dados carregados via JavaScript -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
 
                 <!-- ✅ CLIENTES SECTION -->
                 <div id="clientes" class="content-section hidden">
@@ -605,6 +643,9 @@
                 atualizarDashboard();
             }
         });
+
+
+        
     </script>
 </body>
 </html>

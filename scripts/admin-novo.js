@@ -67,6 +67,15 @@ function showSection(sectionId, event) {
     }
 }
 
+const titles = {
+    'dashboard': 'Dashboard',
+    'clientes': 'Gerenciar Clientes', 
+    'emprestimos': 'Gerenciar Empréstimos',
+    'pagamentos': 'Gerenciar Pagamentos',
+    'pix': 'PIX Recebimentos', // ← ADICIONE ESTA LINHA
+    'settings': 'Configurações'
+};
+
 // ✅ CARREGAR CLIENTES - BANCO APENAS
 async function carregarClientes() {
     try {
@@ -918,3 +927,103 @@ async function debugEmprestimos() {
 
 // Chame esta função no console para ver os empréstimos
 // debugEmprestimos();
+
+// ✅ CARREGAR COBRANÇAS PIX
+async function carregarCobrancasPIX() {
+    try {
+        const response = await fetch('/api/admin/pix/cobrancas');
+        
+        if (!response.ok) {
+            throw new Error('Falha ao carregar cobranças PIX');
+        }
+        
+        const cobrancas = await response.json();
+        exibirCobrancasPIX(cobrancas);
+        
+    } catch (error) {
+        console.error('Erro ao carregar cobranças PIX:', error);
+        document.getElementById('tabelaPix').innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center text-danger py-4">
+                    Erro ao carregar cobranças PIX: ${error.message}
+                </td>
+            </tr>
+        `;
+    }
+}
+
+// ✅ EXIBIR COBRANÇAS PIX
+function exibirCobrancasPIX(cobrancas) {
+    const tbody = document.getElementById('tabelaPix');
+    tbody.innerHTML = '';
+
+    if (cobrancas.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center text-muted py-4">
+                    <i class="fas fa-qrcode"></i><br>
+                    Nenhuma cobrança PIX encontrada
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    cobrancas.forEach(cobranca => {
+        const statusClass = cobranca.status === 'PAGA' ? 'bg-success' : 
+                           cobranca.status === 'ATIVA' ? 'bg-warning' : 'bg-secondary';
+        
+        const dataCriacao = new Date(cobranca.data_criacao).toLocaleDateString('pt-BR');
+        const dataPagamento = cobranca.data_pagamento ? 
+            new Date(cobranca.data_pagamento).toLocaleDateString('pt-BR') : '-';
+        
+        const row = `
+            <tr>
+                <td>
+                    <strong>${cobranca.cliente_nome || 'N/A'}</strong><br>
+                    <small class="text-muted">${cobranca.cpf_cliente}</small>
+                </td>
+                <td>R$ ${parseFloat(cobranca.valor || 0).toFixed(2)}</td>
+                <td><small class="text-muted">${cobranca.txid}</small></td>
+                <td><span class="badge ${statusClass}">${cobranca.status}</span></td>
+                <td>${dataCriacao}</td>
+                <td>${dataPagamento}</td>
+                <td>
+                    <button class="btn btn-sm btn-info" onclick="verDetalhesPIX('${cobranca.txid}')">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    ${cobranca.status === 'ATIVA' ? `
+                    <button class="btn btn-sm btn-warning" onclick="consultarPIX('${cobranca.txid}')">
+                        <i class="fas fa-sync"></i>
+                    </button>
+                    ` : ''}
+                </td>
+            </tr>
+        `;
+        tbody.innerHTML += row;
+    });
+}
+
+// ✅ CONSULTAR STATUS PIX
+async function consultarPIX(txid) {
+    try {
+        const response = await fetch(`/api/pix/cobranca/${txid}`);
+        
+        if (!response.ok) {
+            throw new Error('Falha ao consultar PIX');
+        }
+        
+        const cobranca = await response.json();
+        showNotification(`Status PIX: ${cobranca.status}`, 'info');
+        carregarCobrancasPIX(); // Atualizar lista
+        
+    } catch (error) {
+        console.error('Erro ao consultar PIX:', error);
+        showNotification('Erro ao consultar PIX: ' + error.message, 'error');
+    }
+}
+
+// ✅ ADICIONAR NO CASE NA FUNÇÃO showSection
+case 'pix':
+    carregarCobrancasPIX();
+    break;
