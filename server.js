@@ -495,3 +495,61 @@ let loanSystem;
 document.addEventListener('DOMContentLoaded', function() {
     loanSystem = new LoanSystem();
 });
+
+// Na função de gerar PIX, adicione logs detalhados:
+app.post('/api/payments/pix', async (req, res) => {
+    try {
+        const { cpf, emprestimoIndex, parcela } = req.body;
+        console.log('📦 Dados recebidos:', { cpf, emprestimoIndex, parcela });
+
+        // ... código existente para buscar installment ...
+
+        console.log('🔑 Credenciais Sicoob:', {
+            baseURL: SICOOB_CONFIG.baseURL,
+            clientId: SICOOB_CONFIG.clientId.substring(0, 10) + '...', // não logar completo por segurança
+            chavePix: SICOOB_CONFIG.chavePix
+        });
+
+        const cobrancaData = {
+            calendario: {
+                expiracao: 3600 // 1 hora
+            },
+            devedor: {
+                nome: installment.cliente_nome,
+                cpf: cpf.replace(/\D/g, '')
+            },
+            valor: {
+                original: valor
+            },
+            chave: SICOOB_CONFIG.chavePix,
+            solicitacaoPagador: `Parcela ${parcela} - Empréstimo`
+        };
+
+        console.log('📤 Enviando para Sicoob:', cobrancaData);
+
+        try {
+            // Criar cobrança no Sicoob
+            const response = await sicoobClient.put(`/cob/${txid}`, cobrancaData);
+            console.log('✅ Resposta Sicoob:', response.data);
+            
+            const cobranca = response.data;
+            
+            // ... resto do código ...
+
+        } catch (sicoobError) {
+            console.error('❌ ERRO SICOOB DETALHADO:');
+            console.error('Status:', sicoobError.response?.status);
+            console.error('Headers:', sicoobError.response?.headers);
+            console.error('Data:', sicoobError.response?.data);
+            console.error('Mensagem:', sicoobError.message);
+            
+            // Fallback local
+            console.log('🔄 Usando fallback local...');
+            // ... gerar PIX local
+        }
+
+    } catch (error) {
+        console.error('💥 Erro geral PIX:', error);
+        res.status(500).json({ error: 'Erro ao gerar pagamento PIX' });
+    }
+});
