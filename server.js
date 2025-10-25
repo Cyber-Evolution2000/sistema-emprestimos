@@ -1,614 +1,974 @@
-// scripts/app.js
-class LoanSystem {
-    constructor() {
-        this.apiBase = '/api';
-        this.init();
-    }
+const express = require('express');
+const { Pool } = require('pg');
+const path = require('path');
+const fs = require('fs');
 
-    init() {
-        this.bindEvents();
-        console.log('Sistema de Empréstimos inicializado');
-    }
+const app = express();
+const PORT = process.env.PORT || 10000;
 
-    bindEvents() {
-        // Consulta
-        document.getElementById('consultaForm')?.addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.consultarCliente();
-        });
+// ✅ CONFIGURAÇÃO DO BANCO
+let pool;
+let isDatabaseConnected = false;
 
-        // Admin - Criar Cliente
-        document.getElementById('criarClienteForm')?.addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.criarCliente();
-        });
-
-        // Admin - Criar Empréstimo
-        document.getElementById('criarEmprestimoForm')?.addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.criarEmprestimo();
-        });
-
-        // Formatação do CPF enquanto digita
-        document.getElementById('cpf')?.addEventListener('input', this.formatarCPFInput);
-        document.getElementById('clientCpf')?.addEventListener('input', this.formatarCPFInput);
-        document.getElementById('loanCpf')?.addEventListener('input', this.formatarCPFInput);
-    }
-
-    formatarCPFInput(e) {
-        let value = e.target.value.replace(/\D/g, '');
-        if (value.length <= 11) {
-            if (value.length > 3) value = value.replace(/^(\d{3})(\d)/, '$1.$2');
-            if (value.length > 6) value = value.replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3');
-            if (value.length > 9) value = value.replace(/^(\d{3})\.(\d{3})\.(\d{3})(\d)/, '$1.$2.$3-$4');
-            e.target.value = value;
+// ✅ CONEXÃO BANCO
+async function conectarBanco() {
+    try {
+        if (!process.env.DATABASE_URL) {
+            console.log('❌ DATABASE_URL não configurada');
+            return false;
         }
-    }
 
-    async consultarCliente() {
-        const cpfInput = document.getElementById('cpf').value.replace(/\D/g, '');
+        pool = new Pool({
+            connectionString: process.env.DATABASE_URL,
+            ssl: { rejectUnauthorized: false }
+        });
+
+        const client = await pool.connect();
+        await client.query('SELECT 1');
+        client.release();
         
-        if (!this.validarCPF(cpfInput)) {
-            this.mostrarErro('CPF inválido. Digite 11 números.');
-            return;
-        }
-
-        this.mostrarCarregamento(true);
-
-        try {
-            const response = await fetch(`${this.apiBase}/clients/${cpfInput}`);
-            
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Erro na consulta');
-            }
-
-            const data = await response.json();
-            this.exibirResultados(data);
-
-        } catch (error) {
-            this.mostrarErro(error.message);
-        } finally {
-            this.mostrarCarregamento(false);
-        }
-    }
-
-    async criarCliente() {
-        const formData = new FormData(document.getElementById('criarClienteForm'));
-        const dados = {
-            cpf: formData.get('cpf').replace(/\D/g, ''),
-            nome: formData.get('nome'),
-            telefone: formData.get('telefone'),
-            email: formData.get('email'),
-            endereco: formData.get('endereco')
-        };
-
-        if (!this.validarCPF(dados.cpf)) {
-            this.mostrarErro('CPF inválido.');
-            return;
-        }
-
-        this.mostrarCarregamento(true);
-
-        try {
-            const response = await fetch(`${this.apiBase}/clients`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(dados)
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Erro ao criar cliente');
-            }
-
-            const data = await response.json();
-            this.mostrarSucesso('Cliente criado com sucesso!');
-            document.getElementById('criarClienteForm').reset();
-
-        } catch (error) {
-            this.mostrarErro(error.message);
-        } finally {
-            this.mostrarCarregamento(false);
-        }
-    }
-
-    async criarEmprestimo() {
-        const formData = new FormData(document.getElementById('criarEmprestimoForm'));
-        const dados = {
-            clientCpf: formData.get('cpf').replace(/\D/g, ''),
-            valorTotal: parseFloat(formData.get('valorTotal')),
-            parcelas: parseInt(formData.get('parcelas')),
-            dataVencimento: formData.get('dataVencimento')
-        };
-
-        if (!this.validarCPF(dados.clientCpf)) {
-            this.mostrarErro('CPF inválido.');
-            return;
-        }
-
-        this.mostrarCarregamento(true);
-
-        try {
-            const response = await fetch(`${this.apiBase}/loans`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(dados)
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Erro ao criar empréstimo');
-            }
-
-            const data = await response.json();
-            this.mostrarSucesso('Empréstimo criado com sucesso!');
-            document.getElementById('criarEmprestimoForm').reset();
-
-        } catch (error) {
-            this.mostrarErro(error.message);
-        } finally {
-            this.mostrarCarregamento(false);
-        }
-    }
-
-    async gerarPagamentoPIX(cpf, emprestimoIndex, parcela) {
-        this.mostrarCarregamento(true);
-
-        try {
-            const response = await fetch(`${this.apiBase}/payments/pix`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    cpf: cpf,
-                    emprestimoIndex: emprestimoIndex,
-                    parcela: parcela
-                })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Erro ao gerar pagamento');
-            }
-
-            const data = await response.json();
-
-            if (data.success) {
-                this.mostrarPagamentoSicoob(data);
-            } else {
-                throw new Error('Erro ao gerar pagamento PIX');
-            }
-        } catch (error) {
-            this.mostrarErro(error.message);
-        } finally {
-            this.mostrarCarregamento(false);
-        }
-    }
-
-    validarCPF(cpf) {
-        if (cpf.length !== 11) return false;
-        if (/^(\d)\1{10}$/.test(cpf)) return false;
+        console.log('✅ Conectado ao PostgreSQL!');
+        isDatabaseConnected = true;
         return true;
-    }
-
-    mostrarCarregamento(mostrar) {
-        const loadingElement = document.getElementById('loading');
-        const forms = document.querySelectorAll('form');
-        
-        if (mostrar) {
-            if (loadingElement) loadingElement.style.display = 'block';
-            forms.forEach(form => form.style.opacity = '0.5');
-        } else {
-            if (loadingElement) loadingElement.style.display = 'none';
-            forms.forEach(form => form.style.opacity = '1');
-        }
-    }
-
-    mostrarErro(mensagem) {
-        alert('❌ Erro: ' + mensagem);
-    }
-
-    mostrarSucesso(mensagem) {
-        alert('✅ ' + mensagem);
-    }
-
-    formatarCPF(cpf) {
-        return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
-    }
-
-    formatarTelefone(telefone) {
-        const cleaned = telefone.replace(/\D/g, '');
-        if (cleaned.length === 11) {
-            return cleaned.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
-        }
-        return telefone;
-    }
-
-    calcularDiasAtraso(vencimentoStr) {
-        const hoje = new Date();
-        const vencimento = new Date(vencimentoStr.split('-').reverse().join('-'));
-        const diffTime = hoje - vencimento;
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        
-        return diffDays > 0 ? diffDays : 0;
-    }
-
-    calcularValorComJuros(valorOriginal, diasAtraso) {
-        if (diasAtraso <= 0) return valorOriginal;
-        
-        const jurosDiario = 0.01; // 1% ao dia
-        const jurosTotal = valorOriginal * jurosDiario * diasAtraso;
-        return valorOriginal + jurosTotal;
-    }
-
-    exibirResultados(cliente) {
-        const resultadoDiv = document.getElementById('resultado');
-        resultadoDiv.style.display = 'block';
-        
-        let html = `
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h4 class="mb-0"><i class="fas fa-user"></i> Dados do Cliente</h4>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <p><strong>Nome:</strong> ${cliente.nome}</p>
-                            <p><strong>CPF:</strong> ${this.formatarCPF(cliente.cpf)}</p>
-                            <p><strong>Telefone:</strong> ${this.formatarTelefone(cliente.telefone)}</p>
-                        </div>
-                        <div class="col-md-6">
-                            <p><strong>E-mail:</strong> ${cliente.email}</p>
-                            <p><strong>Endereço:</strong> ${cliente.endereco}</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        // Empréstimos
-        if (cliente.emprestimos && cliente.emprestimos.length > 0) {
-            cliente.emprestimos.forEach((emprestimo, index) => {
-                html += `
-                    <div class="card mb-4">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h4 class="mb-0">Empréstimo ${index + 1}</h4>
-                            <span class="badge bg-primary fs-6">Valor Total: R$ ${emprestimo.valor_total.toFixed(2)}</span>
-                        </div>
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table table-striped table-hover">
-                                    <thead class="table-dark">
-                                        <tr>
-                                            <th>Parcela</th>
-                                            <th>Valor Original</th>
-                                            <th>Vencimento</th>
-                                            <th>Status</th>
-                                            <th>Valor Atualizado</th>
-                                            <th>Ação</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                `;
-                
-                if (emprestimo.boletos && emprestimo.boletos.length > 0) {
-                    emprestimo.boletos.forEach(boleto => {
-                        const diasAtraso = this.calcularDiasAtraso(boleto.vencimento);
-                        const valorAtualizado = this.calcularValorComJuros(boleto.valor, diasAtraso);
-                        const vencido = diasAtraso > 0;
-                        
-                        const statusClass = boleto.status === 'Pago' ? 'status-pago' : 
-                                        (vencido ? 'status-atrasado' : 'status-pendente');
-                        
-                        const statusText = boleto.status === 'Pago' ? 'Pago' : 
-                                        (vencido ? `Atrasado (${diasAtraso} dias)` : 'Pendente');
-                        
-                        html += `
-                            <tr>
-                                <td><strong>${boleto.parcela}</strong></td>
-                                <td>R$ ${boleto.valor.toFixed(2)}</td>
-                                <td>${boleto.vencimento}</td>
-                                <td class="${statusClass}">${statusText}</td>
-                                <td class="${vencido && boleto.status !== 'Pago' ? 'valor-atualizado' : ''}">
-                                    R$ ${valorAtualizado.toFixed(2)}
-                                </td>
-                                <td>
-                        `;
-                        
-                        if (boleto.status !== 'Pago') {
-                            html += `
-                                <button class="btn btn-sm btn-success" 
-                                        onclick="loanSystem.gerarPagamentoPIX('${cliente.cpf}', ${index}, ${boleto.parcela})">
-                                    <i class="fas fa-qrcode"></i> Pagar PIX
-                                </button>
-                            `;
-                        } else {
-                            html += `
-                                <span class="badge bg-success">
-                                    <i class="fas fa-check"></i> Pago
-                                </span>
-                            `;
-                        }
-                        
-                        html += `</td></tr>`;
-                    });
-                } else {
-                    html += `<tr><td colspan="6" class="text-center">Nenhuma parcela encontrada</td></tr>`;
-                }
-                
-                html += `
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
-        } else {
-            html += `
-                <div class="alert alert-info">
-                    <i class="fas fa-info-circle"></i> Nenhum empréstimo encontrado para este cliente.
-                </div>
-            `;
-        }
-        
-        resultadoDiv.innerHTML = html;
-    }
-
-    mostrarPagamentoSicoob(paymentData) {
-        const modalHtml = `
-            <div class="modal fade" id="pagamentoModal" tabindex="-1">
-                <div class="modal-dialog modal-lg">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">💎 Pagamento via PIX Sicoob</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                        </div>
-                        <div class="modal-body text-center">
-                            <p class="fs-5">Valor: <strong>R$ ${paymentData.valor.toFixed(2)}</strong></p>
-                            
-                            ${paymentData.warning ? `
-                                <div class="alert alert-warning">
-                                    <i class="fas fa-exclamation-triangle"></i> ${paymentData.warning}
-                                </div>
-                            ` : ''}
-                            
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="qrcode-container">
-                                        <img src="${paymentData.qrCode}" 
-                                             alt="QR Code PIX" 
-                                             class="img-fluid"
-                                             style="max-width: 300px; border: 1px solid #ddd; border-radius: 8px;"
-                                             onerror="this.onerror=null; this.src='https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(paymentData.pixCopiaECola)}'">
-                                        <p class="mt-2"><small>Escaneie o QR Code com seu app bancário</small></p>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="p-3">
-                                        <h6>📋 PIX Copia e Cola:</h6>
-                                        <div class="input-group mb-3">
-                                            <textarea class="form-control" 
-                                                      id="pixCode" 
-                                                      rows="4" 
-                                                      readonly>${paymentData.pixCopiaECola}</textarea>
-                                            <button class="btn btn-outline-primary" 
-                                                    type="button" 
-                                                    onclick="copiarPIXCode()">
-                                                📋 Copiar
-                                            </button>
-                                        </div>
-                                        <div class="d-grid gap-2">
-                                            <button class="btn btn-primary" onclick="abrirAppBanco('${paymentData.pixCopiaECola}')">
-                                                🔗 Abrir no App do Banco
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="alert alert-info mt-3">
-                                <small>
-                                    <strong>💡 Informações:</strong><br>
-                                    • Pagamento processado via Sicoob PIX<br>
-                                    • Status atualizado automaticamente<br>
-                                    • QR Code válido por 24 horas
-                                </small>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
-                            <button type="button" class="btn btn-primary" onclick="consultarStatusPagamento('${paymentData.txid}')">
-                                🔄 Verificar Status
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        // Remover modal anterior se existir
-        const modalAntigo = document.getElementById('pagamentoModal');
-        if (modalAntigo) {
-            modalAntigo.remove();
-        }
-        
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-        const modal = new bootstrap.Modal(document.getElementById('pagamentoModal'));
-        modal.show();
-    }
-}
-
-// Funções globais
-async function consultarStatusPagamento(txid) {
-    try {
-        const response = await fetch(`/api/webhooks/status/${txid}`);
-        const data = await response.json();
-        
-        if (data.status === 'ATIVA') {
-            alert('⏳ Pagamento ainda não confirmado. Tente novamente em alguns instantes.');
-        } else if (data.status === 'CONCLUIDA') {
-            alert('✅ Pagamento confirmado com sucesso!');
-            const modal = bootstrap.Modal.getInstance(document.getElementById('pagamentoModal'));
-            if (modal) modal.hide();
-            // Recarregar dados do cliente
-            loanSystem.consultarCliente();
-        } else {
-            alert(`Status: ${data.status}`);
-        }
     } catch (error) {
-        alert('❌ Erro ao consultar status: ' + error.message);
+        console.log('❌ Erro na conexão:', error.message);
+        isDatabaseConnected = false;
+        return false;
     }
 }
 
-function copiarPIXCode() {
-    const pixCodeTextarea = document.getElementById('pixCode');
-    pixCodeTextarea.select();
-    pixCodeTextarea.setSelectionRange(0, 99999);
-    
-    try {
-        navigator.clipboard.writeText(pixCodeTextarea.value);
-        alert('✅ Código PIX copiado para a área de transferência!');
-    } catch (err) {
-        document.execCommand('copy');
-        alert('✅ Código PIX copiado!');
-    }
-}
+// ✅ MIDDLEWARE
+app.use(express.json());
+app.use(express.static(__dirname));
+app.use('/scripts', express.static(path.join(__dirname, 'scripts')));
+app.use('/css', express.static(path.join(__dirname, 'css')));
 
-function abrirAppBanco(pixCopiaECola) {
-    // Tentar abrir em app bancário (formato comum)
-    const url = `pix://${encodeURIComponent(pixCopiaECola)}`;
-    window.open(url, '_blank');
-    
-    // Fallback - mostrar mensagem
-    alert('Se o app bancário não abrir automaticamente, cole o código PIX Copia e Cola manualmente.');
-}
-
-// Inicializar sistema quando a página carregar
-let loanSystem;
-document.addEventListener('DOMContentLoaded', function() {
-    loanSystem = new LoanSystem();
+// ✅ ROTAS PRINCIPAIS
+app.get('/', (req, res) => {
+    res.redirect('/admin');
 });
 
-// Na função de gerar PIX, adicione logs detalhados:
-app.post('/api/payments/pix', async (req, res) => {
+app.get('/admin', (req, res) => {
+    const adminPath = path.join(__dirname, 'admin.html');
+    if (fs.existsSync(adminPath)) {
+        res.sendFile(adminPath);
+    } else {
+        res.send('✅ Sistema Admin - admin.html não encontrado');
+    }
+});
+
+// ✅ ROTAS API DE SAÚDE
+app.get('/api/health', async (req, res) => {
+    res.json({
+        status: isDatabaseConnected ? 'OK' : 'ERROR',
+        database: {
+            connected: isDatabaseConnected,
+            hasCredentials: !!process.env.DATABASE_URL
+        },
+        timestamp: new Date().toISOString()
+    });
+});
+
+app.get('/api/debug', async (req, res) => {
+    res.json({
+        system: 'Sistema de Empréstimos',
+        hasDatabaseUrl: !!process.env.DATABASE_URL,
+        databaseConnected: isDatabaseConnected,
+        timestamp: new Date().toISOString()
+    });
+});
+
+// =============================================
+// ✅ ROTAS PARA CLIENTES
+// =============================================
+
+app.get('/api/admin/clientes', async (req, res) => {
     try {
-        const { cpf, emprestimoIndex, parcela } = req.body;
-        console.log('📦 Dados recebidos:', { cpf, emprestimoIndex, parcela });
+        if (!isDatabaseConnected) {
+            return res.status(503).json({ error: 'Banco offline' });
+        }
+        
+        const client = await pool.connect();
+        
+        const tableCheck = await client.query(`
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name = 'clientes'
+            );
+        `);
+        
+        if (!tableCheck.rows[0].exists) {
+            client.release();
+            return res.json([]);
+        }
+        
+        const result = await client.query('SELECT * FROM clientes ORDER BY nome');
+        client.release();
+        
+        res.json(result.rows);
+        
+    } catch (error) {
+        console.error('Erro ao buscar clientes:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
 
-        // ... código existente para buscar installment ...
+app.post('/api/admin/clientes', async (req, res) => {
+    try {
+        if (!isDatabaseConnected) {
+            return res.status(503).json({ error: 'Banco offline' });
+        }
+        
+        const { cpf, nome, email, telefone, endereco } = req.body;
+        
+        if (!cpf || !nome || !telefone) {
+            return res.status(400).json({ error: 'CPF, nome e telefone são obrigatórios' });
+        }
+        
+        const client = await pool.connect();
+        
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS clientes (
+                cpf VARCHAR(14) PRIMARY KEY,
+                nome VARCHAR(100) NOT NULL,
+                email VARCHAR(100),
+                telefone VARCHAR(20) NOT NULL,
+                endereco TEXT,
+                data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        
+        const result = await client.query(
+            'INSERT INTO clientes (cpf, nome, email, telefone, endereco) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+            [cpf, nome, email, telefone, endereco]
+        );
+        
+        client.release();
+        
+        res.json({ 
+            success: true,
+            message: 'Cliente cadastrado com sucesso!',
+            cliente: result.rows[0]
+        });
+        
+    } catch (error) {
+        console.error('Erro ao salvar cliente:', error);
+        
+        if (error.code === '23505') {
+            res.status(400).json({ error: 'CPF já cadastrado' });
+        } else {
+            res.status(500).json({ error: error.message });
+        }
+    }
+});
 
-        console.log('🔑 Credenciais Sicoob:', {
-            baseURL: SICOOB_CONFIG.baseURL,
-            clientId: SICOOB_CONFIG.clientId.substring(0, 10) + '...', // não logar completo por segurança
-            chavePix: SICOOB_CONFIG.chavePix
+app.put('/api/admin/clientes/:cpf', async (req, res) => {
+    try {
+        if (!isDatabaseConnected) {
+            return res.status(503).json({ error: 'Banco offline' });
+        }
+        
+        const { cpf } = req.params;
+        const { nome, email, telefone, endereco } = req.body;
+        
+        if (!nome || !telefone) {
+            return res.status(400).json({ error: 'Nome e telefone são obrigatórios' });
+        }
+        
+        const client = await pool.connect();
+        
+        const result = await client.query(
+            'UPDATE clientes SET nome = $1, email = $2, telefone = $3, endereco = $4 WHERE cpf = $5 RETURNING *',
+            [nome, email, telefone, endereco, cpf]
+        );
+        
+        client.release();
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Cliente não encontrado' });
+        }
+        
+        res.json({ 
+            success: true,
+            message: 'Cliente atualizado com sucesso!',
+            cliente: result.rows[0]
+        });
+        
+    } catch (error) {
+        console.error('Erro ao atualizar cliente:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.delete('/api/admin/clientes/:cpf', async (req, res) => {
+    try {
+        if (!isDatabaseConnected) {
+            return res.status(503).json({ error: 'Banco offline' });
+        }
+        
+        const { cpf } = req.params;
+        const client = await pool.connect();
+        
+        const clienteCheck = await client.query(
+            'SELECT * FROM clientes WHERE cpf = $1',
+            [cpf]
+        );
+        
+        if (clienteCheck.rows.length === 0) {
+            client.release();
+            return res.status(404).json({ error: 'Cliente não encontrado' });
+        }
+        
+        const emprestimosCheck = await client.query(
+            'SELECT COUNT(*) FROM emprestimos WHERE cliente_cpf = $1',
+            [cpf]
+        );
+        
+        const totalEmprestimos = parseInt(emprestimosCheck.rows[0].count);
+        if (totalEmprestimos > 0) {
+            client.release();
+            return res.status(400).json({ 
+                error: `Cliente possui ${totalEmprestimos} empréstimo(s) ativo(s). Exclua os empréstimos primeiro.`
+            });
+        }
+        
+        await client.query('DELETE FROM clientes WHERE cpf = $1', [cpf]);
+        client.release();
+        
+        res.json({ 
+            success: true,
+            message: 'Cliente excluído com sucesso!'
+        });
+        
+    } catch (error) {
+        console.error('Erro ao excluir cliente:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// =============================================
+// ✅ ROTAS PARA EMPRÉSTIMOS
+// =============================================
+
+app.get('/api/admin/emprestimos', async (req, res) => {
+    try {
+        if (!isDatabaseConnected) {
+            return res.status(503).json({ error: 'Banco offline' });
+        }
+        
+        const client = await pool.connect();
+        
+        const tableCheck = await client.query(`
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name = 'emprestimos'
+            );
+        `);
+        
+        if (!tableCheck.rows[0].exists) {
+            client.release();
+            return res.json([]);
+        }
+        
+        const result = await client.query(`
+            SELECT 
+                e.*, 
+                c.nome as cliente_nome,
+                c.telefone as cliente_telefone,
+                (SELECT COUNT(*) FROM parcelas p WHERE p.emprestimo_id = e.id) as total_parcelas,
+                (SELECT COUNT(*) FROM parcelas p WHERE p.emprestimo_id = e.id AND p.status = 'Pago') as parcelas_pagas
+            FROM emprestimos e
+            LEFT JOIN clientes c ON e.cliente_cpf = c.cpf
+            ORDER BY e.data_contratacao DESC
+        `);
+        
+        client.release();
+        
+        res.json(result.rows);
+        
+    } catch (error) {
+        console.error('Erro ao buscar empréstimos:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/admin/emprestimos', async (req, res) => {
+    try {
+        if (!isDatabaseConnected) {
+            return res.status(503).json({ error: 'Banco offline' });
+        }
+        
+        const { cliente_cpf, valor_total, parcelas, taxa_juros, observacoes } = req.body;
+        
+        if (!cliente_cpf || !valor_total || !parcelas) {
+            return res.status(400).json({ error: 'CPF do cliente, valor total e parcelas são obrigatórios' });
+        }
+        
+        const client = await pool.connect();
+        
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS emprestimos (
+                id SERIAL PRIMARY KEY,
+                cliente_cpf VARCHAR(14) REFERENCES clientes(cpf),
+                valor_total DECIMAL(10,2) NOT NULL,
+                parcelas INTEGER NOT NULL,
+                taxa_juros DECIMAL(5,2) DEFAULT 0,
+                observacoes TEXT,
+                data_contratacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                status VARCHAR(20) DEFAULT 'Ativo'
+            );
+        `);
+        
+        const result = await client.query(
+            `INSERT INTO emprestimos (cliente_cpf, valor_total, parcelas, taxa_juros, observacoes) 
+             VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+            [cliente_cpf, valor_total, parcelas, taxa_juros || 0, observacoes || '']
+        );
+        
+        const emprestimoId = result.rows[0].id;
+        const valorParcela = valor_total / parcelas;
+        
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS parcelas (
+                id SERIAL PRIMARY KEY,
+                emprestimo_id INTEGER REFERENCES emprestimos(id),
+                numero_parcela INTEGER NOT NULL,
+                valor DECIMAL(10,2) NOT NULL,
+                vencimento DATE NOT NULL,
+                status VARCHAR(20) DEFAULT 'Pendente',
+                data_pagamento DATE NULL
+            );
+        `);
+        
+        const datasVencimento = [];
+        const hoje = new Date();
+        
+        for (let i = 1; i <= parcelas; i++) {
+            const dataVencimento = new Date(hoje);
+            dataVencimento.setMonth(hoje.getMonth() + i);
+            dataVencimento.setDate(10);
+            
+            datasVencimento.push(dataVencimento.toISOString().split('T')[0]);
+        }
+        
+        for (let i = 0; i < parcelas; i++) {
+            await client.query(
+                `INSERT INTO parcelas (emprestimo_id, numero_parcela, valor, vencimento) 
+                 VALUES ($1, $2, $3, $4)`,
+                [emprestimoId, i + 1, valorParcela, datasVencimento[i]]
+            );
+        }
+        
+        client.release();
+        
+        res.json({ 
+            success: true,
+            message: 'Empréstimo cadastrado com sucesso!',
+            emprestimo: result.rows[0],
+            parcelas_criadas: parcelas
+        });
+        
+    } catch (error) {
+        console.error('Erro ao salvar empréstimo:', error);
+        
+        if (error.code === '23503') {
+            res.status(400).json({ error: 'Cliente não encontrado' });
+        } else {
+            res.status(500).json({ error: error.message });
+        }
+    }
+});
+
+// ✅ ROTA PARA EXCLUIR EMPRÉSTIMO
+app.delete('/api/admin/emprestimos/:id', async (req, res) => {
+    try {
+        if (!isDatabaseConnected) {
+            return res.status(503).json({ error: 'Banco offline' });
+        }
+
+        const emprestimoId = parseInt(req.params.id);
+        
+        console.log('🗑️ Tentando excluir empréstimo ID:', emprestimoId);
+        
+        if (isNaN(emprestimoId)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'ID do empréstimo inválido' 
+            });
+        }
+
+        const client = await pool.connect();
+
+        // Verificar se o empréstimo existe
+        const emprestimoCheck = await client.query(
+            'SELECT id, cliente_cpf FROM emprestimos WHERE id = $1',
+            [emprestimoId]
+        );
+
+        if (emprestimoCheck.rows.length === 0) {
+            client.release();
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Empréstimo não encontrado' 
+            });
+        }
+
+        console.log('✅ Empréstimo encontrado:', emprestimoCheck.rows[0]);
+
+        // ✅ PRIMEIRO: Excluir as parcelas relacionadas
+        console.log('🗑️ Excluindo parcelas do empréstimo:', emprestimoId);
+        const deleteParcelas = await client.query(
+            'DELETE FROM parcelas WHERE emprestimo_id = $1',
+            [emprestimoId]
+        );
+        console.log(`✅ Parcelas excluídas: ${deleteParcelas.rowCount}`);
+
+        // ✅ DEPOIS: Excluir o empréstimo
+        console.log('🗑️ Excluindo empréstimo:', emprestimoId);
+        const result = await client.query(
+            'DELETE FROM emprestimos WHERE id = $1 RETURNING id',
+            [emprestimoId]
+        );
+
+        client.release();
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Empréstimo não encontrado após verificação' 
+            });
+        }
+
+        console.log('✅ Empréstimo excluído com sucesso:', emprestimoId);
+        
+        res.json({ 
+            success: true, 
+            message: 'Empréstimo excluído com sucesso',
+            id: emprestimoId
         });
 
-        const cobrancaData = {
-            calendario: {
-                expiracao: 3600 // 1 hora
-            },
-            devedor: {
-                nome: installment.cliente_nome,
-                cpf: cpf.replace(/\D/g, '')
-            },
-            valor: {
-                original: valor
-            },
-            chave: SICOOB_CONFIG.chavePix,
-            solicitacaoPagador: `Parcela ${parcela} - Empréstimo`
-        };
-
-        console.log('📤 Enviando para Sicoob:', cobrancaData);
-
-        try {
-            // Criar cobrança no Sicoob
-            const response = await sicoobClient.put(`/cob/${txid}`, cobrancaData);
-            console.log('✅ Resposta Sicoob:', response.data);
-            
-            const cobranca = response.data;
-            
-            // ... resto do código ...
-
-        } catch (sicoobError) {
-            console.error('❌ ERRO SICOOB DETALHADO:');
-            console.error('Status:', sicoobError.response?.status);
-            console.error('Headers:', sicoobError.response?.headers);
-            console.error('Data:', sicoobError.response?.data);
-            console.error('Mensagem:', sicoobError.message);
-            
-            // Fallback local
-            console.log('🔄 Usando fallback local...');
-            // ... gerar PIX local
-        }
-
     } catch (error) {
-        console.error('💥 Erro geral PIX:', error);
-        res.status(500).json({ error: 'Erro ao gerar pagamento PIX' });
+        console.error('❌ Erro ao excluir empréstimo:', error);
+        
+        res.status(500).json({ 
+            success: false, 
+            message: 'Erro interno do servidor ao excluir empréstimo',
+            error: error.message 
+        });
     }
 });
 
-// 🔍 ENDPOINT DE DIAGNÓSTICO DO SICOOB
-app.get('/api/debug-sicoob', async (req, res) => {
+// =============================================
+// ✅ ROTAS PARA PIX RECEBIMENTOS (SICOOB)
+// =============================================
+
+// Configurações do Sicoob PIX
+const SICOOB_CONFIG = {
+    base_url: "https://sandbox.sicoob.com.br/sicoob/sandbox/pix/api/v2",
+    client_id: "9b5e603e428cc477a2841e2683c92d21",
+    access_token: "1301865f-c6bc-38f3-9f49-666dbcfc59c3",
+    chave_pix: "12345678900"
+};
+
+// Headers para API Sicoob
+function getSicoobHeaders() {
+    return {
+        "Authorization": `Bearer ${SICOOB_CONFIG.access_token}`,
+        "Content-Type": "application/json",
+        "client_id": SICOOB_CONFIG.client_id
+    };
+}
+
+// ✅ CRIAR COBRANÇA PIX
+app.post('/api/pix/cobranca', async (req, res) => {
     try {
-        console.log('🔧 Iniciando teste de conexão com Sicoob Sandbox...');
+        const { cpf, valor, descricao, parcela_id } = req.body;
         
-        const testData = {
+        console.log('💰 Criando cobrança PIX:', { cpf, valor, descricao, parcela_id });
+
+        // Buscar dados do cliente
+        const client = await pool.connect();
+        const clienteResult = await client.query(
+            'SELECT * FROM clientes WHERE cpf = $1',
+            [cpf]
+        );
+        
+        if (clienteResult.rows.length === 0) {
+            client.release();
+            return res.status(404).json({ error: 'Cliente não encontrado' });
+        }
+
+        const cliente = clienteResult.rows[0];
+        client.release();
+
+        // Preparar payload para API Sicoob
+        const txid = `TX${Date.now()}${Math.random().toString(36).substr(2, 9)}`;
+        
+        const payload = {
             calendario: {
                 expiracao: 3600
             },
             devedor: {
-                cpf: "12345678909",
-                nome: "Usuario Teste"
+                cpf: cpf.replace(/\D/g, ''),
+                nome: cliente.nome
             },
             valor: {
-                original: "1.00"
+                original: valor.toFixed(2)
             },
-            chave: SICOOB_CONFIG.chavePix,
-            solicitacaoPagador: "Teste de conexão"
+            chave: SICOOB_CONFIG.chave_pix,
+            solicitacaoPagador: descricao || `Pagamento parcela ${parcela_id}`
         };
 
-        const txid = 'teste_' + Date.now();
-        
-        console.log('📤 Enviando para:', `${SICOOB_CONFIG.baseURL}/cob/${txid}`);
-        console.log('🔑 Client ID:', SICOOB_CONFIG.clientId);
-        console.log('📝 Dados:', JSON.stringify(testData, null, 2));
+        console.log('📤 Enviando para Sicoob PIX:', payload);
 
-        const response = await sicoobClient.put(`/cob/${txid}`, testData);
-        
-        console.log('✅ SICOOB RESPONDEU COM SUCESSO!');
-        console.log('Status:', response.status);
-        console.log('Dados:', response.data);
-        
+        let pixData;
+        try {
+            // Fazer requisição para API Sicoob
+            const response = await fetch(`${SICOOB_CONFIG.base_url}/cob/${txid}`, {
+                method: 'PUT',
+                headers: getSicoobHeaders(),
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+                pixData = await response.json();
+                console.log('✅ Cobrança PIX criada:', pixData);
+            } else {
+                throw new Error('API Sicoob não disponível');
+            }
+        } catch (apiError) {
+            // Simular resposta se a API não estiver disponível
+            console.log('⚠️ Usando PIX simulado (API offline)');
+            pixData = {
+                txid: txid,
+                status: "ATIVA",
+                pixCopiaECola: `00020126580014br.gov.bcb.pix0136${SICOOB_CONFIG.chave_pix}520400005303986540${valor.toFixed(2).replace('.', '')}5802BR5925SISTEMA EMPRESTIMOS PIX6008BRASILIA62070503***6304${Math.random().toString(36).substr(2, 4)}`
+            };
+        }
+
+        // Salvar no banco de dados
+        await salvarCobrancaPIX(cpf, valor, parcela_id, pixData);
+
+        // Gerar QR Code
+        const qrCode = await gerarQRCode(pixData);
+
         res.json({
             success: true,
-            status: response.status,
-            data: response.data,
-            message: 'Conexão com Sicoob Sandbox funcionando!'
+            qrCode: qrCode,
+            pixCopiaECola: pixData.pixCopiaECola || pixData.copy_paste,
+            valor: valor,
+            expiracao: new Date(Date.now() + 3600 * 1000).toISOString(),
+            txid: pixData.txid
         });
 
     } catch (error) {
-        console.error('❌ ERRO NA CONEXÃO COM SICOOB:');
-        console.error('Status:', error.response?.status);
-        console.error('URL:', error.config?.url);
-        console.error('Mensagem:', error.message);
-        
-        if (error.response) {
-            console.error('Resposta do erro:', error.response.data);
-            console.error('Headers:', error.response.headers);
-        }
-        
-        res.json({
-            success: false,
-            error: error.message,
-            response: error.response?.data,
-            status: error.response?.status
+        console.error('💥 Erro ao criar cobrança PIX:', error);
+        res.status(500).json({ 
+            error: 'Erro ao criar cobrança PIX: ' + error.message 
         });
     }
+});
+
+// ✅ SALVAR COBRANÇA PIX NO BANCO
+async function salvarCobrancaPIX(cpf, valor, parcela_id, pixData) {
+    try {
+        const client = await pool.connect();
+        
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS pix_cobrancas (
+                id SERIAL PRIMARY KEY,
+                txid VARCHAR(100) UNIQUE NOT NULL,
+                cpf_cliente VARCHAR(14) NOT NULL,
+                valor DECIMAL(10,2) NOT NULL,
+                parcela_id INTEGER,
+                qr_code TEXT,
+                pix_copia_cola TEXT,
+                status VARCHAR(20) DEFAULT 'ATIVA',
+                data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                data_expiracao TIMESTAMP,
+                data_pagamento TIMESTAMP NULL
+            );
+        `);
+
+        await client.query(
+            `INSERT INTO pix_cobrancas (txid, cpf_cliente, valor, parcela_id, pix_copia_cola, data_expiracao)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [
+                pixData.txid,
+                cpf,
+                valor,
+                parcela_id,
+                pixData.pixCopiaECola || pixData.copy_paste || '',
+                new Date(Date.now() + 3600 * 1000)
+            ]
+        );
+
+        client.release();
+        console.log('✅ Cobrança PIX salva no banco');
+
+    } catch (error) {
+        console.error('❌ Erro ao salvar cobrança PIX:', error);
+    }
+}
+
+// ✅ GERAR QR CODE
+async function gerarQRCode(pixData) {
+    const qrData = pixData.pixCopiaECola || pixData.copy_paste;
+    return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData)}`;
+}
+
+// ✅ CONSULTAR COBRANÇA PIX
+app.get('/api/pix/cobranca/:txid', async (req, res) => {
+    try {
+        const { txid } = req.params;
+
+        // Primeiro buscar do banco
+        const client = await pool.connect();
+        const result = await client.query(
+            'SELECT * FROM pix_cobrancas WHERE txid = $1',
+            [txid]
+        );
+        client.release();
+
+        if (result.rows.length > 0) {
+            return res.json(result.rows[0]);
+        }
+
+        res.status(404).json({ error: 'Cobrança PIX não encontrada' });
+
+    } catch (error) {
+        console.error('Erro ao consultar cobrança PIX:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ✅ LISTAR COBRANÇAS PIX
+app.get('/api/admin/pix/cobrancas', async (req, res) => {
+    try {
+        if (!isDatabaseConnected) {
+            return res.status(503).json({ error: 'Banco offline' });
+        }
+
+        const client = await pool.connect();
+        
+        // Verificar se a tabela existe
+        const tableCheck = await client.query(`
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name = 'pix_cobrancas'
+            );
+        `);
+        
+        if (!tableCheck.rows[0].exists) {
+            client.release();
+            return res.json([]);
+        }
+        
+        const result = await client.query(`
+            SELECT pc.*, c.nome as cliente_nome 
+            FROM pix_cobrancas pc
+            LEFT JOIN clientes c ON pc.cpf_cliente = c.cpf
+            ORDER BY pc.data_criacao DESC
+        `);
+        
+        client.release();
+        res.json(result.rows);
+
+    } catch (error) {
+        console.error('Erro ao buscar cobranças PIX:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ✅ WEBHOOK PARA RECEBER NOTIFICAÇÕES PIX
+app.post('/api/pix/webhook', async (req, res) => {
+    try {
+        const webhookData = req.body;
+        
+        console.log('🔄 Webhook PIX recebido:', webhookData);
+
+        if (webhookData.pix && webhookData.pix.length > 0) {
+            const pix = webhookData.pix[0];
+            
+            // Atualizar status no banco
+            const client = await pool.connect();
+            
+            await client.query(
+                'UPDATE pix_cobrancas SET status = $1, data_pagamento = $2 WHERE txid = $3',
+                ['PAGA', new Date(), pix.txid]
+            );
+
+            // Se tiver parcela_id, atualizar parcela também
+            if (pix.parcela_id) {
+                await client.query(
+                    'UPDATE parcelas SET status = $1, data_pagamento = $2 WHERE id = $3',
+                    ['Pago', new Date(), pix.parcela_id]
+                );
+            }
+
+            client.release();
+            console.log('✅ Pagamento PIX confirmado e atualizado:', pix.txid);
+        }
+
+        res.status(200).json({ received: true });
+
+    } catch (error) {
+        console.error('❌ Erro no webhook PIX:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// =============================================
+// ✅ ROTAS ADICIONAIS
+// =============================================
+
+app.get('/api/admin/pagamentos', async (req, res) => {
+    try {
+        if (!isDatabaseConnected) {
+            return res.status(503).json({ error: 'Banco offline' });
+        }
+        res.json([]);
+    } catch (error) {
+        console.error('Erro ao buscar pagamentos:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/admin/criar-tabela-clientes', async (req, res) => {
+    try {
+        if (!isDatabaseConnected) {
+            return res.status(503).json({ error: 'Banco offline' });
+        }
+        
+        const client = await pool.connect();
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS clientes (
+                cpf VARCHAR(14) PRIMARY KEY,
+                nome VARCHAR(100) NOT NULL,
+                email VARCHAR(100),
+                telefone VARCHAR(20) NOT NULL,
+                endereco TEXT,
+                data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        client.release();
+        
+        res.json({ 
+            success: true,
+            message: 'Tabela clientes criada/verificada com sucesso!'
+        });
+        
+    } catch (error) {
+        console.error('Erro ao criar tabela:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/admin/adicionar-dados-exemplo', async (req, res) => {
+    try {
+        if (!isDatabaseConnected) {
+            return res.status(503).json({ error: 'Banco offline' });
+        }
+        
+        const client = await pool.connect();
+        
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS emprestimos (
+                id SERIAL PRIMARY KEY,
+                cliente_cpf VARCHAR(14) REFERENCES clientes(cpf),
+                valor_total DECIMAL(10,2) NOT NULL,
+                parcelas INTEGER NOT NULL,
+                data_contratacao DATE DEFAULT CURRENT_DATE,
+                status VARCHAR(20) DEFAULT 'Ativo'
+            );
+        `);
+        
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS parcelas (
+                id SERIAL PRIMARY KEY,
+                emprestimo_id INTEGER REFERENCES emprestimos(id),
+                numero_parcela INTEGER NOT NULL,
+                valor DECIMAL(10,2) NOT NULL,
+                vencimento DATE NOT NULL,
+                status VARCHAR(20) DEFAULT 'Pendente',
+                data_pagamento DATE NULL
+            );
+        `);
+        
+        await client.query(`
+            INSERT INTO emprestimos (cliente_cpf, valor_total, parcelas) VALUES
+            ('123.456.789-00', 5000.00, 12),
+            ('987.654.321-00', 3000.00, 6)
+            ON CONFLICT DO NOTHING;
+        `);
+        
+        await client.query(`
+            INSERT INTO parcelas (emprestimo_id, numero_parcela, valor, vencimento, status) VALUES
+            (1, 1, 416.67, '2024-11-10', 'Pendente'),
+            (1, 2, 416.67, '2024-12-10', 'Pendente'),
+            (2, 1, 500.00, '2024-11-15', 'Pago'),
+            (2, 2, 500.00, '2024-12-15', 'Pendente')
+            ON CONFLICT DO NOTHING;
+        `);
+        
+        client.release();
+        
+        res.json({ 
+            success: true,
+            message: 'Dados de exemplo adicionados com sucesso!',
+            emprestimos_adicionados: 2,
+            parcelas_adicionadas: 4
+        });
+        
+    } catch (error) {
+        console.error('Erro ao adicionar dados exemplo:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/admin/debug-emprestimos', async (req, res) => {
+    try {
+        if (!isDatabaseConnected) {
+            return res.status(503).json({ error: 'Banco offline' });
+        }
+        
+        const client = await pool.connect();
+        
+        const countResult = await client.query(`
+            SELECT 
+                cliente_cpf,
+                COUNT(*) as total_emprestimos
+            FROM emprestimos 
+            GROUP BY cliente_cpf
+            ORDER BY total_emprestimos DESC
+        `);
+        
+        const listResult = await client.query(`
+            SELECT id, cliente_cpf, valor_total, data_contratacao
+            FROM emprestimos 
+            ORDER BY cliente_cpf, data_contratacao
+        `);
+        
+        client.release();
+        
+        res.json({
+            contagem_por_cliente: countResult.rows,
+            todos_emprestimos: listResult.rows,
+            total_geral: listResult.rows.length
+        });
+        
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// =============================================
+// ✅ ROTAS PARA O SITE PÚBLICO (INDEX.HTML)
+// =============================================
+
+app.get('/api/clients/:cpf', async (req, res) => {
+    try {
+        if (!isDatabaseConnected) {
+            return res.status(503).json({ error: 'Banco offline' });
+        }
+        
+        const { cpf } = req.params;
+        console.log(`🔍 Buscando cliente e empréstimos para CPF: ${cpf}`);
+        
+        const client = await pool.connect();
+        
+        const clienteResult = await client.query(
+            'SELECT * FROM clientes WHERE cpf = $1',
+            [cpf]
+        );
+        
+        if (clienteResult.rows.length === 0) {
+            client.release();
+            return res.status(404).json({ error: 'Cliente não encontrado' });
+        }
+        
+        const cliente = clienteResult.rows[0];
+        
+        const emprestimosResult = await client.query(`
+            SELECT e.* 
+            FROM emprestimos e
+            WHERE e.cliente_cpf = $1
+            ORDER BY e.data_contratacao DESC
+        `, [cpf]);
+        
+        const emprestimosComParcelas = [];
+        
+        for (const emprestimo of emprestimosResult.rows) {
+            const parcelasResult = await client.query(`
+                SELECT * FROM parcelas 
+                WHERE emprestimo_id = $1 
+                ORDER BY numero_parcela
+            `, [emprestimo.id]);
+            
+            const boletos = parcelasResult.rows.map(parcela => {
+                return {
+                    id: parcela.id,
+                    parcela: parcela.numero_parcela,
+                    valor: parseFloat(parcela.valor).toFixed(2),
+                    valorAtualizado: parseFloat(parcela.valor).toFixed(2),
+                    vencimento: parcela.vencimento,
+                    status: parcela.status,
+                    dataPagamento: parcela.data_pagamento
+                };
+            });
+            
+            emprestimosComParcelas.push({
+                id: emprestimo.id,
+                valorTotal: parseFloat(emprestimo.valor_total).toFixed(2),
+                parcelas: emprestimo.parcelas,
+                dataContratacao: emprestimo.data_contratacao,
+                status: emprestimo.status,
+                boletos: boletos
+            });
+        }
+        
+        client.release();
+        
+        const resposta = {
+            ...cliente,
+            emprestimos: emprestimosComParcelas
+        };
+        
+        console.log(`✅ Cliente encontrado: ${cliente.nome}, Empréstimos: ${emprestimosComParcelas.length}`);
+        res.json(resposta);
+        
+    } catch (error) {
+        console.error('❌ Erro ao buscar cliente:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ✅ PIX SIMULADO (para compatibilidade)
+app.post('/api/payments/pix', async (req, res) => {
+    try {
+        const { cpf, parcela } = req.body;
+        
+        const pixData = {
+            qrCode: 'https://via.placeholder.com/200x200/32BCAD/FFFFFF?text=QR+CODE+PIX',
+            pixCopiaECola: `00020126580014br.gov.bcb.pix0136123e4567-e12b-12d1-a456-4266141740005204000053039865406${Math.random()*1000}5802BR5925SISTEMA EMPRESTIMOS PIX6008BRASILIA62070503***6304${Math.random().toString(36).substr(2, 4)}`,
+            valor: 150.00,
+            expiracao: '2024-12-31T23:59:59'
+        };
+        
+        res.json(pixData);
+        
+    } catch (error) {
+        console.error('Erro ao gerar PIX:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ✅ INICIAR SERVIDOR
+app.listen(PORT, async () => {
+    console.log(`🚀 Servidor rodando: http://localhost:${PORT}`);
+    console.log(`👨‍💼 Admin: http://localhost:${PORT}/admin`);
+    await conectarBanco();
 });
