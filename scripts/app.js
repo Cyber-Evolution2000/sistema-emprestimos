@@ -57,7 +57,7 @@ class LoanSystem {
         this.mostrarCarregamento(true);
 
         try {
-            const response = await fetch(`${this.apiBase}/payments/pix`, {
+            const response = await fetch(`${this.apiBase}/pix/cobranca`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -367,3 +367,19 @@ let loanSystem;
 document.addEventListener('DOMContentLoaded', function() {
     loanSystem = new LoanSystem();
 });
+
+async function gerarPix() {
+  const valor = parseFloat(document.getElementById("valor").value);
+  const res = await fetch("/api/pix/cobranca", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ valor }),
+  });
+  const data = await res.json();
+  if (data.success) {
+    document.getElementById("qr").src = data.qrCode;
+    document.getElementById("pixCopia").value = data.pixCopiaECola;
+  } else {
+    alert("Erro ao gerar PIX");
+  }
+}
