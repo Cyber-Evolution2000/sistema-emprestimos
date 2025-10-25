@@ -1,12 +1,11 @@
 {
   "type": "module",
-  "name": "sicoob-sandbox-pix",
+  "name": "sistema-pix-sicoob",
   "version": "1.0.0",
   "description": "Sistema PIX com Sicoob Sandbox",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
+    "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.18.2",
