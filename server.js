@@ -553,3 +553,62 @@ app.post('/api/payments/pix', async (req, res) => {
         res.status(500).json({ error: 'Erro ao gerar pagamento PIX' });
     }
 });
+
+// 🔍 ENDPOINT DE DIAGNÓSTICO DO SICOOB
+app.get('/api/debug-sicoob', async (req, res) => {
+    try {
+        console.log('🔧 Iniciando teste de conexão com Sicoob Sandbox...');
+        
+        const testData = {
+            calendario: {
+                expiracao: 3600
+            },
+            devedor: {
+                cpf: "12345678909",
+                nome: "Usuario Teste"
+            },
+            valor: {
+                original: "1.00"
+            },
+            chave: SICOOB_CONFIG.chavePix,
+            solicitacaoPagador: "Teste de conexão"
+        };
+
+        const txid = 'teste_' + Date.now();
+        
+        console.log('📤 Enviando para:', `${SICOOB_CONFIG.baseURL}/cob/${txid}`);
+        console.log('🔑 Client ID:', SICOOB_CONFIG.clientId);
+        console.log('📝 Dados:', JSON.stringify(testData, null, 2));
+
+        const response = await sicoobClient.put(`/cob/${txid}`, testData);
+        
+        console.log('✅ SICOOB RESPONDEU COM SUCESSO!');
+        console.log('Status:', response.status);
+        console.log('Dados:', response.data);
+        
+        res.json({
+            success: true,
+            status: response.status,
+            data: response.data,
+            message: 'Conexão com Sicoob Sandbox funcionando!'
+        });
+
+    } catch (error) {
+        console.error('❌ ERRO NA CONEXÃO COM SICOOB:');
+        console.error('Status:', error.response?.status);
+        console.error('URL:', error.config?.url);
+        console.error('Mensagem:', error.message);
+        
+        if (error.response) {
+            console.error('Resposta do erro:', error.response.data);
+            console.error('Headers:', error.response.headers);
+        }
+        
+        res.json({
+            success: false,
+            error: error.message,
+            response: error.response?.data,
+            status: error.response?.status
+        });
+    }
+});
