@@ -1,13 +1,10 @@
 @echo off
-chdir /d "C:\xampp\htdocs\sistema-emprestimos"
-REM Substitua pelo caminho real da sua pasta
-
 echo ========================================
 echo    UPLOAD AUTOMATICO PARA GITHUB
 echo ========================================
 
 git add .
-git commit -m "Atualizacao automatica"
+git commit -m "Atualizacao %date% %time%"
 git push origin main
 
 echo.
