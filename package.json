@@ -1,18 +1,17 @@
 {
-  "type": "module",
-  "name": "sistema-pix-sicoob",
+  "name": "pix-sicoob",
   "version": "1.0.0",
-  "description": "Sistema PIX com Sicoob Sandbox",
+  "description": "Servidor simples para criar cobran\u00e7as PIX (Sicoob Pix Recebimentos) com mTLS",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "axios": "^1.6.0",
+    "axios": "^1.4.0",
+    "body-parser": "^1.20.2",
+    "dotenv": "^16.0.3",
     "express": "^4.18.2",
-    "request": "^2.88.2"
-  },
-  "engines": {
-    "node": ">=18.0.0"
+    "uuid": "^9.0.0",
+    "qrcode": "^1.5.1"
   }
 }
