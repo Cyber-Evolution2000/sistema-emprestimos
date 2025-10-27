@@ -1,4 +1,4 @@
-// server.js - SISTEMA PIX PRODUÇÃO COM ESCOPOS CORRETOS
+// server.js - VERSÃO CORRIGIDA SEM CERTIFICADO/SECRET
 import express from "express";
 import axios from "axios";
 import path from "path";
@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-// 🔹 CREDENCIAIS REAIS PRODUÇÃO SICOOB
+// 🔹 CREDENCIAIS - CLIENT ID CONFIRMADO ATIVO
 const SICOOB_PRODUCAO = {
   tokenURL: "https://auth.sicoob.com.br/auth/realms/cooperado/protocol/openid-connect/token",
   baseURL: "https://api.sicoob.com.br/pix/api/v2",
@@ -19,71 +19,69 @@ const SICOOB_PRODUCAO = {
   empresa: {
     nome: "P C LIMA INACIO",
     cnpj: "24430463000151",
-    cidade: "BRASILIA",
+    cidade: "BRASILIA", 
     conta: "4558-6",
     cooperativa: "4437"
   }
 };
 
-// 🔹 ESCOPOS EXATAMENTE COMO APARECE NA SUA TELA
-const SICOOB_SCOPES = [
-  "pix.read",
-  "cobv.read", 
-  "lotecobv.write",
-  "payloadlocation.read",
-  "webhook.write",
-  "cob.read",
-  "cob.write",
-  "webhook.read",
-  "pix.write",
-  "lotecobv.read",
-  "payloadlocation.write",
-  "cobv.write"
-].join(" ");
+// 🔹 ESCOPOS SIMPLIFICADOS - APENAS OS ESSENCIAIS
+const SICOOB_SCOPES = "cob.write cob.read pix.write pix.read";
 
-// 🔹 VARIÁVEIS GLOBAIS
 let accessToken = null;
 let tokenExpiraEm = null;
 
-// 🔹 OBTER TOKEN - COM ESCOPOS CORRETOS
+// 🔹 OBTER TOKEN - VERSÃO CORRIGIDA
 async function obterTokenSicoob() {
   try {
-    console.log("🔑 Obtendo token produção Sicoob...");
+    console.log("🔑 Obtendo token Sicoob...");
+    console.log("Client ID:", SICOOB_PRODUCAO.clientId);
     
-    const response = await axios.post(
-      SICOOB_PRODUCAO.tokenURL,
-      new URLSearchParams({
+    const response = await axios({
+      method: 'post',
+      url: SICOOB_PRODUCAO.tokenURL,
+      data: new URLSearchParams({
         grant_type: 'client_credentials',
         client_id: SICOOB_PRODUCAO.clientId,
         scope: SICOOB_SCOPES
       }),
-      {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        timeout: 20000
-      }
-    );
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      timeout: 30000
+    });
 
     accessToken = response.data.access_token;
     tokenExpiraEm = Date.now() + (response.data.expires_in * 1000);
     
-    console.log("✅ Token produção obtido!");
+    console.log("✅ Token obtido com sucesso!");
+    console.log("Token:", accessToken.substring(0, 50) + "...");
     console.log("Expira em:", new Date(tokenExpiraEm).toLocaleString());
-    console.log("Escopos:", SICOOB_SCOPES);
     
     return accessToken;
     
   } catch (error) {
-    console.error("❌ Erro ao obter token:");
-    console.error("Status:", error.response?.status);
-    console.error("Data:", error.response?.data);
-    console.error("URL:", SICOOB_PRODUCAO.tokenURL);
+    console.error("❌ ERRO NA AUTENTICAÇÃO:");
+    
+    if (error.response) {
+      console.error("Status:", error.response.status);
+      console.error("Resposta:", error.response.data);
+      
+      // 🔍 DETALHES ESPECÍFICOS DO ERRO
+      if (error.response.data.error === "invalid_client") {
+        console.error("🚨 SOLUÇÃO: Client ID precisa ser ativado para OAuth2");
+        console.error("📞 Contate a 7AZ e peça:");
+        console.error("   - Ativar OAuth2 para este Client ID");
+        console.error("   - Verificar se escopos PIX estão liberados");
+        console.error("   - Confirmar se não precisa de Client Secret");
+      }
+    }
+    
     throw error;
   }
 }
 
-// 🔹 CLIENT API COM TOKEN
+// 🔹 CLIENT API
 async function getApiClient() {
   if (!accessToken || Date.now() >= tokenExpiraEm - 60000) {
     await obterTokenSicoob();
@@ -100,25 +98,20 @@ async function getApiClient() {
   });
 }
 
-// 🔹 GERAR TXID ÚNICO
-function gerarTxid() {
-  return `PC${Date.now()}${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-}
-
-// 🔹 TESTE DE CONEXÃO PRODUÇÃO
+// 🔹 ENDPOINT DE TESTE DETALHADO
 app.get("/api/producao/teste", async (req, res) => {
   try {
-    console.log("🏦 Testando conexão produção Sicoob...");
+    console.log("🏦 Testando conexão produção...");
     
     const token = await obterTokenSicoob();
     
     if (!token) {
-      throw new Error("Token não foi obtido");
+      throw new Error("Token não obtido");
     }
 
     const apiClient = await getApiClient();
     
-    // Testar endpoint simples de listagem
+    // Testar endpoint simples
     const response = await apiClient.get("/cob?inicio=2024-01-01T00:00:00Z&fim=2024-01-02T00:00:00Z");
     
     res.json({
@@ -127,198 +120,124 @@ app.get("/api/producao/teste", async (req, res) => {
       token: `✅ Válido (${token.substring(0, 20)}...)`,
       apiStatus: response.status,
       empresa: SICOOB_PRODUCAO.empresa.nome,
-      escopos: SICOOB_SCOPES,
-      details: "Sistema pronto para criar cobranças PIX reais"
+      escopos: SICOOB_SCOPES
     });
 
   } catch (error) {
-    console.error("❌ Erro produção:", error.response?.data || error.message);
+    console.error("❌ Erro detalhado:", error.response?.data || error.message);
     
-    // Detalhes específicos do erro
-    let detalhesErro = "Erro desconhecido";
+    let detalhesErro = "Erro de autenticação";
     let solucao = "Entre em contato com a 7AZ Softwares";
     
     if (error.response?.data?.error === "invalid_client") {
-      detalhesErro = "Client ID inválido ou não autorizado";
-      solucao = "Verifique com a 7AZ se o Client ID está ativo para API PIX";
-    } else if (error.response?.data?.error === "unauthorized_client") {
-      detalhesErro = "Client não autorizado para estes escopos";
-      solucao = "Solicite à 7AZ a ativação dos escopos PIX";
-    } else if (error.code === 'ECONNABORTED') {
-      detalhesErro = "Timeout na conexão com Sicoob";
-      solucao = "API Sicoob pode estar instável, tente novamente";
+      detalhesErro = "Client ID não autorizado para OAuth2";
+      solucao = "Solicite à 7AZ: 'Ativar OAuth2 para Client ID " + SICOOB_PRODUCAO.clientId + "'";
     }
     
     res.json({
       success: false,
-      error: "Falha na autenticação produção",
-      details: error.response?.data || error.message,
+      error: "Falha na autenticação",
       detalhesErro: detalhesErro,
       solucao: solucao,
-      escopos_tentados: SICOOB_SCOPES
+      respostaSicoob: error.response?.data,
+      clientId: SICOOB_PRODUCAO.clientId
     });
   }
 });
 
-// 🔹 CRIAR PIX PRODUÇÃO REAL
-app.post("/api/pix/criar", async (req, res) => {
+// 🔹 DIAGNÓSTICO COMPLETO
+app.get("/api/diagnostico-completo", async (req, res) => {
   try {
-    const { valor, cpf, nome, descricao = "Pagamento via sistema" } = req.body;
+    console.log("🔍 Diagnóstico completo...");
     
-    if (!valor || valor <= 0) {
-      return res.status(400).json({ 
-        success: false, 
-        error: "Valor é obrigatório" 
-      });
+    // Teste 1: Conectividade básica
+    let conectividade = "❌ Falhou";
+    try {
+      await axios.get('https://api.sicoob.com.br', { timeout: 10000 });
+      conectividade = "✅ OK";
+    } catch (e) {
+      conectividade = "❌ Sem internet com Sicoob";
     }
 
-    console.log(`💰 Criando PIX produção: R$ ${valor}`);
-    
-    const apiClient = await getApiClient();
-    const txid = gerarTxid();
-    
-    const payload = {
-      calendario: {
-        expiracao: 3600 // 1 hora para testes
-      },
-      devedor: {
-        cpf: (cpf || "12345678909").replace(/\D/g, ''),
-        nome: nome || "Cliente"
-      },
-      valor: {
-        original: parseFloat(valor).toFixed(2)
-      },
-      chave: SICOOB_PRODUCAO.empresa.cnpj,
-      solicitacaoPagador: descricao
-    };
-
-    console.log("📤 Enviando cobrança para Sicoob...");
-    const response = await apiClient.put(`/cob/${txid}`, payload);
-    const cobranca = response.data;
-
-    console.log("✅ PIX REAL CRIADO:", cobranca.txid);
-
-    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(cobranca.pixCopiaECola)}`;
+    // Teste 2: Autenticação
+    let autenticacao = "❌ Falhou";
+    let tokenInfo = null;
+    try {
+      const token = await obterTokenSicoob();
+      autenticacao = "✅ OK";
+      tokenInfo = {
+        token: token.substring(0, 30) + "...",
+        expiracao: new Date(tokenExpiraEm).toLocaleString()
+      };
+    } catch (e) {
+      autenticacao = `❌ ${e.response?.data?.error || e.message}`;
+    }
 
     res.json({
-      success: true,
-      txid: cobranca.txid,
-      valor: parseFloat(valor),
-      qrCode: qrCodeUrl,
-      pixCopiaECola: cobranca.pixCopiaECola,
-      location: cobranca.location,
-      status: cobranca.status,
-      expiracao: new Date(Date.now() + 3600 * 1000).toISOString(),
-      empresa: SICOOB_PRODUCAO.empresa.nome,
-      instrucoes: [
-        "🎯 PIX PRODUÇÃO CRIADO - SICOOB REAL!",
-        "1. Este PIX movimenta dinheiro REAL",
-        "2. Use o QR Code ou copie o código PIX",
-        "3. Abra seu app bancário",
-        `4. Valor: R$ ${parseFloat(valor).toFixed(2)}`,
-        `5. Beneficiário: ${SICOOB_PRODUCAO.empresa.nome}`,
-        "6. ⏰ Válido por 1 hora",
-        "7. 💰 Será creditado na conta 4558-6"
+      diagnostico: {
+        timestamp: new Date().toISOString(),
+        conectividade: conectividade,
+        autenticacao: autenticacao,
+        token: tokenInfo
+      },
+      credenciais: {
+        clientId: SICOOB_PRODUCAO.clientId,
+        empresa: SICOOB_PRODUCAO.empresa.nome,
+        cnpj: SICOOB_PRODUCAO.empresa.cnpj,
+        escopos: SICOOB_SCOPES
+      },
+      status: "🔴 AGUARDANDO ATIVAÇÃO OAUTH2",
+      acoes: [
+        "1. 📞 Contatar 7AZ Softwares IMEDIATAMENTE",
+        "2. 💬 Mensagem: 'Client ID precisa de ativação OAuth2'", 
+        "3. 🎯 Solicitar: 'Liberar escopos PIX para OAuth2'",
+        "4. 🔄 Testar novamente após ativação"
       ]
     });
 
   } catch (error) {
-    console.error("❌ Erro criar PIX produção:", error.response?.data || error.message);
-    
-    res.status(500).json({
-      success: false,
-      error: "Erro ao criar cobrança PIX",
-      details: error.response?.data,
-      message: "Verifique se a API PIX está ativa para seu Client ID"
-    });
-  }
-});
-
-// 🔹 ENDPOINT DE TESTE RÁPIDO
-app.get("/api/pix/teste/:valor?", async (req, res) => {
-  const valor = parseFloat(req.params.valor) || 0.10;
-  
-  try {
-    console.log(`🧪 Criando PIX teste: R$ ${valor}`);
-    
-    const apiClient = await getApiClient();
-    const txid = gerarTxid();
-    
-    const payload = {
-      calendario: { expiracao: 3600 },
-      devedor: { cpf: "12345678909", nome: "Cliente Teste" },
-      valor: { original: valor.toFixed(2) },
-      chave: SICOOB_PRODUCAO.empresa.cnpj,
-      solicitacaoPagador: "Teste sistema PIX - " + SICOOB_PRODUCAO.empresa.nome
-    };
-
-    const response = await apiClient.put(`/cob/${txid}`, payload);
-    const cobranca = response.data;
-
-    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(cobranca.pixCopiaECola)}`;
-
     res.json({
-      success: true,
-      valor: valor,
-      qrCode: qrCodeUrl,
-      pixCopiaECola: cobranca.pixCopiaECola,
-      txid: cobranca.txid,
-      status: cobranca.status,
-      empresa: SICOOB_PRODUCAO.empresa.nome,
-      instrucoes: [
-        "🎯 PIX PRODUÇÃO - SICOOB REAL!",
-        "1. Este é um PIX REAL - movimenta dinheiro",
-        "2. Copie o código e cole no seu banco",
-        `3. Valor: R$ ${valor.toFixed(2)}`,
-        `4. Beneficiário: ${SICOOB_PRODUCAO.empresa.nome}`,
-        "5. ⚠️ AMBIENTE REAL - TESTE COM VALOR BAIXO"
-      ]
-    });
-
-  } catch (error) {
-    console.error("❌ Erro teste produção:", error.response?.data);
-    
-    res.status(500).json({
-      success: false,
-      error: "API produção não respondeu",
-      details: error.response?.data,
-      message: "Client ID precisa ser ativado para API PIX produção"
+      error: "Erro no diagnóstico",
+      message: error.message
     });
   }
 });
 
-// 🔹 PÁGINA PRINCIPAL
+// 🔹 PÁGINA PRINCIPAL ATUALIZADA
 app.get("/", (req, res) => {
   res.send(`
     <!DOCTYPE html>
     <html>
     <head>
-        <title>🏦 PIX Produção - P C LIMA INACIO</title>
+        <title>🏦 PIX Produção - Diagnóstico</title>
         <meta charset="UTF-8">
         <style>
             body { font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; }
             .card { border: 1px solid #ddd; padding: 20px; margin: 10px 0; border-radius: 8px; }
             .btn { padding: 12px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
             .btn-success { background: #28a745; }
+            .btn-danger { background: #dc3545; }
             #resultado { margin-top: 20px; }
+            .success { background: #d4edda; border-color: #c3e6cb; }
+            .error { background: #f8d7da; border-color: #f5c6cb; }
+            .warning { background: #fff3cd; border-color: #ffeaa7; }
         </style>
     </head>
     <body>
-        <h1>🏦 Sistema PIX Produção</h1>
+        <h1>🏦 Sistema PIX Produção - DIAGNÓSTICO</h1>
         
-        <div class="card">
-            <h3>🔑 Credenciais Sicoob</h3>
-            <p><strong>Client ID:</strong> ${SICOOB_PRODUCAO.clientId}</p>
+        <div class="card warning">
+            <h3>⚠️ STATUS: AGUARDANDO ATIVAÇÃO 7AZ</h3>
+            <p><strong>Client ID:</strong> ${SICOOB_PRODUCAO.clientId} ✅ <em>Ativo mas precisa de OAuth2</em></p>
             <p><strong>Empresa:</strong> ${SICOOB_PRODUCAO.empresa.nome}</p>
-            <p><strong>CNPJ:</strong> ${SICOOB_PRODUCAO.empresa.cnpj}</p>
-            <p><strong>Escopos Ativos:</strong> ${SICOOB_SCOPES}</p>
+            <p><strong>Problema:</strong> Client ID não autorizado para OAuth2</p>
         </div>
 
         <div class="card">
-            <h3>🧪 Testes Produção</h3>
-            <button class="btn" onclick="testarConexao()">Testar Conexão Produção</button>
-            <button class="btn btn-success" onclick="testarPIX(0.10)">Testar PIX R$ 0,10</button>
-            <button class="btn btn-success" onclick="testarPIX(1.00)">Testar PIX R$ 1,00</button>
+            <h3>🔧 Testes de Diagnóstico</h3>
+            <button class="btn" onclick="testarConexao()">Testar Conexão</button>
+            <button class="btn btn-success" onclick="diagnosticoCompleto()">Diagnóstico Completo</button>
+            <button class="btn btn-danger" onclick="mostrarContato7AZ()">Contatar 7AZ</button>
         </div>
 
         <div id="resultado"></div>
@@ -326,55 +245,63 @@ app.get("/", (req, res) => {
         <script>
             async function testarConexao() {
                 const resultado = document.getElementById('resultado');
-                resultado.innerHTML = '<p>🔌 Testando produção...</p>';
+                resultado.innerHTML = '<div class="card">🔌 Testando produção...</div>';
                 
                 const response = await fetch('/api/producao/teste');
                 const data = await response.json();
                 
                 if (data.success) {
-                    resultado.innerHTML = '<div class="card" style="background: #d4edda;">✅ ' + data.message + '</div>';
+                    resultado.innerHTML = '<div class="card success">✅ ' + data.message + '</div>';
                 } else {
                     resultado.innerHTML = \`
-                        <div class="card" style="background: #f8d7da;">
+                        <div class="card error">
                             <h3>❌ \${data.error}</h3>
                             <p><strong>Detalhes:</strong> \${data.detalhesErro}</p>
                             <p><strong>Solução:</strong> \${data.solucao}</p>
-                            <pre>\${JSON.stringify(data.details, null, 2)}</pre>
+                            <button class="btn btn-danger" onclick="mostrarContato7AZ()">📞 Contatar 7AZ</button>
                         </div>
                     \`;
                 }
             }
 
-            async function testarPIX(valor) {
+            async function diagnosticoCompleto() {
                 const resultado = document.getElementById('resultado');
-                resultado.innerHTML = '<p>💰 Criando PIX...</p>';
+                resultado.innerHTML = '<div class="card">🔍 Executando diagnóstico completo...</div>';
                 
-                const response = await fetch('/api/pix/teste/' + valor);
+                const response = await fetch('/api/diagnostico-completo');
                 const data = await response.json();
                 
-                if (data.success) {
-                    resultado.innerHTML = \`
-                        <div class="card" style="background: #d4edda;">
-                            <h3>✅ PIX Produção Criado!</h3>
-                            <p><strong>Valor:</strong> R$ \${data.valor}</p>
-                            <img src="\${data.qrCode}" alt="QR Code" style="max-width: 300px;">
-                            <textarea style="width: 100%; height: 80px;">\${data.pixCopiaECola}</textarea>
-                            <button class="btn" onclick="copiarPIX('\${data.pixCopiaECola}')">📋 Copiar</button>
-                        </div>
-                    \`;
-                } else {
-                    resultado.innerHTML = \`
-                        <div class="card" style="background: #f8d7da;">
-                            <h3>❌ \${data.error}</h3>
-                            <p>\${data.message}</p>
-                        </div>
-                    \`;
-                }
+                resultado.innerHTML = \`
+                    <div class="card \${data.diagnostico.autenticacao.includes('✅') ? 'success' : 'error'}">
+                        <h3>\${data.status}</h3>
+                        <p><strong>Conectividade:</strong> \${data.diagnostico.conectividade}</p>
+                        <p><strong>Autenticação:</strong> \${data.diagnostico.autenticacao}</p>
+                        <h4>📋 Ações Necessárias:</h4>
+                        <ul>\${data.acoes.map(acao => '<li>' + acao + '</li>').join('')}</ul>
+                        <button class="btn btn-danger" onclick="mostrarContato7AZ()">📞 Contatar 7AZ Agora</button>
+                    </div>
+                \`;
             }
 
-            function copiarPIX(texto) {
-                navigator.clipboard.writeText(texto);
-                alert('✅ Código copiado!');
+            function mostrarContato7AZ() {
+                const resultado = document.getElementById('resultado');
+                resultado.innerHTML = \`
+                    <div class="card warning">
+                        <h3>📞 CONTATAR 7AZ SOFTWARES</h3>
+                        <p><strong>Mensagem para enviar:</strong></p>
+                        <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 10px 0;">
+                            "Prezados, nosso Client ID <strong>${SICOOB_PRODUCAO.clientId}</strong> 
+                            está retornando 'invalid_client' no OAuth2.<br><br>
+                            <strong>Solicito:</strong><br>
+                            1. Ativar OAuth2 para este Client ID<br>
+                            2. Liberar escopos PIX: cob.write, cob.read, pix.write, pix.read<br>
+                            3. Confirmar se necessário Client Secret<br><br>
+                            Empresa: ${SICOOB_PRODUCAO.empresa.nome}<br>
+                            CNPJ: ${SICOOB_PRODUCAO.empresa.cnpj}"
+                        </div>
+                        <p><strong>📧 Email/WhatsApp da 7AZ</strong></p>
+                    </div>
+                \`;
             }
         </script>
     </body>
@@ -383,6 +310,6 @@ app.get("/", (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Sistema PIX Produção: http://localhost:${PORT}`);
-  console.log(`🔗 Teste conexão: http://localhost:${PORT}/api/producao/teste`);
+  console.log(`🚀 Sistema PIX Diagnóstico: http://localhost:${PORT}`);
+  console.log(`🔍 Diagnóstico: http://localhost:${PORT}/api/diagnostico-completo`);
 });
