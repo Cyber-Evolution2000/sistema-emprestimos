@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: pix-sicoob-system
+    env: php
+    plan: free
+    buildCommand: "chmod +x build.sh && ./build.sh"
+    startCommand: "php -S 0.0.0.0:8000"
+    envVars:
+      - key: PHP_VERSION
+        value: 8.1

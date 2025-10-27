@@ -1,0 +1,20 @@
+{
+    "name": "seunome/pix-sicoob-system",
+    "description": "Sistema de PIX SICOOB",
+    "type": "project",
+    "require": {
+        "php": ">=7.4",
+        "chillerlan/php-qrcode": "^4.3",
+        "ext-curl": "*",
+        "ext-json": "*",
+        "ext-openssl": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/"
+        }
+    },
+    "config": {
+        "platform-check": false
+    }
+}
